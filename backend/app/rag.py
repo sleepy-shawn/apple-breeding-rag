@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
+from qdrant_client.http.exceptions import UnexpectedResponse
 
 from app.settings import Settings
 
@@ -41,6 +42,12 @@ class RagService:
         self.client.add(collection_name=collection, documents=docs, metadata=metadata, ids=ids)
         return len(items)
 
+    def collection_exists(self, collection: str) -> bool:
+        try:
+            return bool(self.client.collection_exists(collection_name=collection))
+        except Exception:
+            return False
+
     def route(self, question: str, user_route: str) -> str:
         if user_route != "auto":
             return user_route
@@ -61,11 +68,17 @@ class RagService:
         merged: list[RetrievedItem] = []
         per_collection_limit = max(2, top_k // max(1, len(collections)))
         for collection in collections:
-            results = self.client.query(
-                collection_name=collection,
-                query_text=question,
-                limit=per_collection_limit,
-            )
+            try:
+                results = self.client.query(
+                    collection_name=collection,
+                    query_text=question,
+                    limit=per_collection_limit,
+                )
+            except UnexpectedResponse as exc:
+                # Collection may not exist yet before first ingestion.
+                if "doesn't exist" in str(exc) or "Not found: Collection" in str(exc):
+                    continue
+                raise
             for point in results:
                 payload = getattr(point, "metadata", None) or getattr(point, "payload", None) or {}
                 document = (

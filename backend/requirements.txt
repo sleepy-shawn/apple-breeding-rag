@@ -1,9 +1,11 @@
 fastapi==0.116.1
 uvicorn[standard]==0.35.0
 qdrant-client==1.15.1
+fastembed
 openai==1.99.2
 pydantic-settings==2.10.1
 python-multipart==0.0.20
 pypdf==5.9.0
 pandas==2.3.1
 numpy==2.3.2
+cryptography
