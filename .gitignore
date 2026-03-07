@@ -4,3 +4,10 @@ __pycache__/
 .DS_Store
 node_modules/
 .next/
+
+# Large/local datasets
+backend/data/**
+!backend/data/
+!backend/data/README.md
+!backend/data/genes/
+!backend/data/genes/sample_genes.csv
