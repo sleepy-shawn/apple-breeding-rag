@@ -41,13 +41,14 @@ def ingest_papers_impl() -> IngestResponse:
     return IngestResponse(inserted=inserted, collection=settings.qdrant_papers_collection)
 
 
-def ingest_genes_impl(filename: str = "genes.csv") -> IngestResponse:
+def ingest_genes_impl(filename: str = "genes.csv", collection: str | None = None) -> IngestResponse:
     file_path = Path("data/genes") / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail=f"{file_path} not found")
     items = load_gene_rows(file_path)
-    inserted = rag.add_documents(settings.qdrant_genes_collection, items)
-    return IngestResponse(inserted=inserted, collection=settings.qdrant_genes_collection)
+    target_collection = collection or settings.qdrant_genes_collection
+    inserted = rag.add_documents(target_collection, items)
+    return IngestResponse(inserted=inserted, collection=target_collection)
 
 
 @app.post(f"{settings.api_prefix}/ingest/papers", response_model=IngestResponse)
@@ -58,6 +59,11 @@ def ingest_papers() -> IngestResponse:
 @app.post(f"{settings.api_prefix}/ingest/genes", response_model=IngestResponse)
 def ingest_genes(filename: str = "genes.csv") -> IngestResponse:
     return ingest_genes_impl(filename=filename)
+
+
+@app.post(f"{settings.api_prefix}/ingest/genes_firmness", response_model=IngestResponse)
+def ingest_genes_firmness(filename: str = "genes_firmness.csv") -> IngestResponse:
+    return ingest_genes_impl(filename=filename, collection=settings.qdrant_genes_firmness_collection)
 
 
 def _auto_ingest_worker() -> None:
@@ -79,6 +85,18 @@ def _auto_ingest_worker() -> None:
                 print(f"[auto-ingest] genes failed: {exc}", flush=True)
         else:
             print("[auto-ingest] skip genes (collection exists)", flush=True)
+
+        if not rag.collection_exists(settings.qdrant_genes_firmness_collection):
+            try:
+                result = ingest_genes_impl(
+                    filename=settings.auto_ingest_genes_firmness_filename,
+                    collection=settings.qdrant_genes_firmness_collection,
+                )
+                print(f"[auto-ingest] genes_firmness inserted={result.inserted}", flush=True)
+            except Exception as exc:
+                print(f"[auto-ingest] genes_firmness failed: {exc}", flush=True)
+        else:
+            print("[auto-ingest] skip genes_firmness (collection exists)", flush=True)
     except Exception:
         logger.exception("auto-ingest failed")
 
@@ -103,6 +121,16 @@ def ensure_bootstrap_ingested() -> None:
                 print(f"[bootstrap-chat] genes inserted={result.inserted}", flush=True)
             except Exception as exc:
                 print(f"[bootstrap-chat] genes failed: {exc}", flush=True)
+
+        if not rag.collection_exists(settings.qdrant_genes_firmness_collection):
+            try:
+                result = ingest_genes_impl(
+                    filename=settings.auto_ingest_genes_firmness_filename,
+                    collection=settings.qdrant_genes_firmness_collection,
+                )
+                print(f"[bootstrap-chat] genes_firmness inserted={result.inserted}", flush=True)
+            except Exception as exc:
+                print(f"[bootstrap-chat] genes_firmness failed: {exc}", flush=True)
 
 
 @app.on_event("startup")

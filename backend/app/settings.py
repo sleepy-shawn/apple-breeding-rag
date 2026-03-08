@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://qdrant:6333", alias="QDRANT_URL")
     qdrant_papers_collection: str = "papers"
     qdrant_genes_collection: str = "genes"
+    qdrant_genes_firmness_collection: str = "genes_firmness"
     auto_ingest_on_startup: bool = Field(default=True, alias="AUTO_INGEST_ON_STARTUP")
     auto_ingest_genes_filename: str = Field(default="genes.csv", alias="AUTO_INGEST_GENES_FILENAME")
+    auto_ingest_genes_firmness_filename: str = Field(
+        default="genes_firmness.csv",
+        alias="AUTO_INGEST_GENES_FIRMNESS_FILENAME",
+    )
 
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",

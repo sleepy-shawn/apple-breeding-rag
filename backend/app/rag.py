@@ -12,6 +12,39 @@ from app.settings import Settings
 
 
 GENE_HINTS = {"gene", "snp", "marker", "locus", "allele", "qtl", "genotype", "位点", "基因"}
+FIRMNESS_HINTS = {"firmness", "hardness", "crisp", "crispness", "texture", "硬度", "脆", "质地", "软化", "ripening"}
+FIRMNESS_POSITIVE = {
+    "firmness",
+    "crispness",
+    "ripening",
+    "texture",
+    "mdnac18",
+    "mdnac5",
+    "mdpg",
+    "mdacs",
+    "硬度",
+    "成熟",
+    "软化",
+    "脆度",
+    "质地",
+}
+FIRMNESS_NEGATIVE = {"fire blight", "scab", "anthracnose", "褐斑病", "炭疽", "病害"}
+FIRMNESS_STRICT = {
+    "firmness",
+    "crispness",
+    "hardness",
+    "texture",
+    "mdnac18",
+    "mdnac5",
+    "mdpg",
+    "mdacs1",
+    "mderf3",
+    "mderf118",
+    "硬度",
+    "脆度",
+    "质地",
+    "软化",
+}
 
 
 @dataclass
@@ -56,14 +89,32 @@ class RagService:
             return "hybrid"
         return "papers"
 
+    def is_firmness_query(self, question: str) -> bool:
+        q = question.lower()
+        return any(k in q for k in FIRMNESS_HINTS)
+
     def retrieve(self, question: str, route: str, top_k: int) -> list[RetrievedItem]:
+        ask_firmness = self.is_firmness_query(question)
         collections: list[str]
         if route == "papers":
             collections = [self.settings.qdrant_papers_collection]
         elif route == "genes":
-            collections = [self.settings.qdrant_genes_collection]
+            if ask_firmness:
+                collections = [
+                    self.settings.qdrant_genes_firmness_collection,
+                    self.settings.qdrant_genes_collection,
+                ]
+            else:
+                collections = [self.settings.qdrant_genes_collection]
         else:
-            collections = [self.settings.qdrant_papers_collection, self.settings.qdrant_genes_collection]
+            if ask_firmness:
+                collections = [
+                    self.settings.qdrant_papers_collection,
+                    self.settings.qdrant_genes_firmness_collection,
+                    self.settings.qdrant_genes_collection,
+                ]
+            else:
+                collections = [self.settings.qdrant_papers_collection, self.settings.qdrant_genes_collection]
 
         merged: list[RetrievedItem] = []
         per_collection_limit = max(2, top_k // max(1, len(collections)))
@@ -98,8 +149,61 @@ class RagService:
                     )
                 )
 
-        merged.sort(key=lambda item: item.score, reverse=True)
-        return merged[:top_k]
+        return self.rerank(question=question, items=merged, top_k=top_k)
+
+    def rerank(self, question: str, items: list[RetrievedItem], top_k: int) -> list[RetrievedItem]:
+        if not items:
+            return []
+
+        q = question.lower()
+        ask_firmness = any(k in q for k in FIRMNESS_HINTS)
+
+        def hit_counts(text: str) -> tuple[int, int]:
+            pos_hits = sum(1 for k in FIRMNESS_POSITIVE if k in text)
+            neg_hits = sum(1 for k in FIRMNESS_NEGATIVE if k in text)
+            return pos_hits, neg_hits
+
+        def adjusted_score(item: RetrievedItem) -> float:
+            score = item.score
+            text = f"{item.title or ''} {item.chunk_text}".lower()
+
+            # De-prioritize noisy generated columns from flattened tables.
+            if text.count("col_") >= 10:
+                score -= 0.25
+
+            if ask_firmness:
+                pos_hits, neg_hits = hit_counts(text)
+                score += 0.06 * pos_hits
+                score -= 0.12 * neg_hits
+
+                # Extra boost for gene records on firmness-like query.
+                if item.source_type == "gene":
+                    score += 0.08
+
+            return score
+
+        reranked = sorted(items, key=adjusted_score, reverse=True)
+        if not ask_firmness:
+            return reranked[:top_k]
+
+        # Hard filter for firmness queries: avoid returning disease-only evidence.
+        scored = []
+        for it in reranked:
+            t = f"{it.title or ''} {it.chunk_text}".lower()
+            pos_hits, neg_hits = hit_counts(t)
+            strict_hits = sum(1 for k in FIRMNESS_STRICT if k in t)
+            scored.append((it, pos_hits, neg_hits, strict_hits))
+
+        # Prefer strict-match evidence and reject disease-focused chunks.
+        strong = [it for it, pos, neg, strict in scored if strict > 0 and neg == 0]
+        weak = [it for it, pos, neg, strict in scored if strict > 0 and neg <= pos]
+        if strong:
+            return strong[:top_k]
+        if weak:
+            return weak[:top_k]
+
+        # No evidence matching firmness intent: return empty and let API report insufficient evidence.
+        return []
 
     def generate(self, question: str, sources: list[RetrievedItem]) -> str:
         context_lines = []
