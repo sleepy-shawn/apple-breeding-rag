@@ -208,12 +208,16 @@ class RagService:
     def generate(self, question: str, sources: list[RetrievedItem]) -> str:
         context_lines = []
         for idx, src in enumerate(sources, start=1):
+            level = "B"
+            low = (src.chunk_text or "").lower()
+            if any(k in low for k in ["qtl region", "deg", "gwas", "association", "p-value", "p value"]):
+                level = "A"
             citation = f"[{idx}] {src.source_type}"
             if src.title:
                 citation += f" | {src.title}"
             if src.page:
                 citation += f" | p.{src.page}"
-            context_lines.append(f"{citation}\n{src.chunk_text}")
+            context_lines.append(f"{citation} | evidence_level={level}\n{src.chunk_text}")
         context = "\n\n".join(context_lines)
 
         if self.llm is None:
@@ -226,7 +230,8 @@ class RagService:
 
         system_prompt = (
             "你是苹果育种领域的RAG助手。仅根据提供证据回答；"
-            "若证据不足要明确说明。答案末尾必须给出引用编号。"
+            "若证据不足要明确说明。答案必须分两段：Level A(直接证据) 与 Level B(间接证据)。"
+            "答案末尾必须给出引用编号。"
         )
         user_prompt = f"问题:\n{question}\n\n证据:\n{context}"
 

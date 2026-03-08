@@ -5,7 +5,7 @@ Input columns expected:
 - source_file, sheet, row_index, row_text
 
 Output columns:
-- source_file, sheet, row_index, trait, gene, snp, chr, pos, pvalue, variety, evidence_text
+- source_file, sheet, row_index, trait, gene, snp, chr, pos, pvalue, score_raw, variety, evidence_text
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from pathlib import Path
 
 TRAIT_RULES = {
     "firmness": ["firmness", "crispness", "hardness", "texture", "脆度", "硬度", "软化", "flesh crisp"],
-    "acidity": ["acidity", "acid", "malic", "ph", "酸度", "有机酸"],
+    "acidity": ["fruit acidity", "titratable acidity", "malic acid", "苹果酸", "酸度", "有机酸"],
     "sugar": ["sugar", "soluble solids", "brix", "sucrose", "fructose", "glucose", "糖度", "可溶性固形物"],
     "color": ["skin color", "anthocyanin", "myb10", "果皮颜色", "花青素", "着色"],
     "harvest": ["harvest date", "ripening", "maturity", "成熟期", "采收期", "成熟"],
@@ -30,7 +30,8 @@ GENE_RE_1 = re.compile(r"\bgene:([A-Za-z0-9_.-]+)", re.IGNORECASE)
 GENE_RE_2 = re.compile(r"\b(Md[A-Za-z0-9_.-]{2,})\b")
 CHR_POS_RE = re.compile(r"\b(Chr\s*\d+)\s*[:]\s*(\d+)\b", re.IGNORECASE)
 PVAL_RE = re.compile(r"\b(\d+(?:\.\d+)?E[-+]?\d+)\b", re.IGNORECASE)
-FLOAT_RE = re.compile(r"\b\d+\.\d+\b")
+HEADER_HINTS = ["table s", "supplementary table", "name;", "traits", "marker combination"]
+METHOD_HINTS = ["list of primer sequences", "primer", "electrophoresis", "pcr reaction", "experimental procedure"]
 
 
 def detect_trait(text: str) -> str:
@@ -41,6 +42,15 @@ def detect_trait(text: str) -> str:
         if any(k in t for k in keys):
             return trait
     return ""
+
+
+def is_header_or_method_row(text: str, row_index: str) -> bool:
+    t = text.lower()
+    if any(k in t for k in METHOD_HINTS):
+        return True
+    if row_index.strip() == "1" and any(k in t for k in HEADER_HINTS):
+        return True
+    return False
 
 
 def extract_first(regex: re.Pattern[str], text: str) -> str:
@@ -65,14 +75,25 @@ def extract_chr_pos(text: str) -> tuple[str, str]:
 
 
 def extract_pvalue(text: str) -> str:
+    low = text.lower()
+    # Only treat as p-value when clear statistical context exists.
+    stat_context = any(k in low for k in ["gwas", "p-value", "p value", "significance", "association analysis"])
+    if not stat_context:
+        return ""
     m = PVAL_RE.search(text)
     if m:
         return m.group(1)
-    # fallback: col_5 is often p-value in GWAS table
+    # fallback: col_5 is often p-value in GWAS-like table
     m2 = re.search(r"col_5:\s*([0-9.]+(?:E[-+]?\d+)?)", text, flags=re.IGNORECASE)
-    if m2:
+    if m2 and ("e-" in m2.group(1).lower() or "e+" in m2.group(1).lower()):
         return m2.group(1)
     return ""
+
+
+def extract_score_raw(text: str) -> str:
+    # For DEG / expression-like rows, keep col_5 as a generic score.
+    m = re.search(r"col_5:\s*([0-9.]+(?:E[-+]?\d+)?)", text, flags=re.IGNORECASE)
+    return m.group(1) if m else ""
 
 
 def extract_variety(text: str) -> str:
@@ -107,6 +128,8 @@ def main() -> None:
             text = (row.get("row_text") or "").strip()
             if not text:
                 continue
+            if is_header_or_method_row(text, str(row.get("row_index", ""))):
+                continue
 
             trait = detect_trait(text)
             if not trait:
@@ -116,6 +139,7 @@ def main() -> None:
             snp = normalize_snp(text)
             chr_, pos = extract_chr_pos(text)
             pvalue = extract_pvalue(text)
+            score_raw = extract_score_raw(text)
             variety = extract_variety(text)
 
             if not (gene or snp or (chr_ and pos)):
@@ -132,6 +156,7 @@ def main() -> None:
                     "chr": chr_,
                     "pos": pos,
                     "pvalue": pvalue,
+                    "score_raw": score_raw,
                     "variety": variety,
                     "evidence_text": text,
                 }
@@ -154,6 +179,7 @@ def main() -> None:
         "chr",
         "pos",
         "pvalue",
+        "score_raw",
         "variety",
         "evidence_text",
     ]
