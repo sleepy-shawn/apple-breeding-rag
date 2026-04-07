@@ -12,8 +12,11 @@ services:
       - ./backend/.env
     environment:
       - FASTEMBED_CACHE_PATH=/app/.fastembed_cache
+      - HF_ENDPOINT=https://hf-mirror.com
+      - NO_PROXY=localhost,127.0.0.1,qdrant
     volumes:
       - ./backend/data:/app/data
+      - backend_fastembed_cache:/app/.fastembed_cache
     ports:
       - "8000:8000"
     depends_on:
@@ -30,3 +33,4 @@ services:
 
 volumes:
   qdrant_data:
+  backend_fastembed_cache:

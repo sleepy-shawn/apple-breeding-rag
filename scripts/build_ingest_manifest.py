@@ -16,6 +16,8 @@ import csv
 import re
 from pathlib import Path
 
+from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
+
 PDF_EXT = {".pdf"}
 TABLE_EXT = {".xls", ".xlsx", ".csv", ".tsv"}
 SEQ_EXT = {".fasta", ".fa", ".fna", ".fastq", ".fq", ".vcf", ".vcf.gz", ".gff", ".gff3", ".bed", ".bam", ".sam", ".nex"}
@@ -48,12 +50,16 @@ def is_archive(path: Path) -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build per-paper ingest manifest")
-    parser.add_argument("--papers-root", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Pipeline config TOML path")
+    parser.add_argument("--papers-root")
+    parser.add_argument("--output")
     args = parser.parse_args()
 
-    papers_root = Path(args.papers_root)
-    output = Path(args.output)
+    layout = load_pipeline_layout(args.config)
+    ensure_pipeline_dirs(layout)
+
+    papers_root = Path(args.papers_root).resolve() if args.papers_root else layout.papers_root
+    output = Path(args.output).resolve() if args.output else layout.ingest_manifest_file
     output.parent.mkdir(parents=True, exist_ok=True)
 
     rows: list[list[str]] = []

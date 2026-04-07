@@ -1,0 +1,39 @@
+:root {
+  --bg-a: #fffaf0;
+  --bg-b: #f7f6e8;
+  --surface: #fffef8;
+  --text: #2d3119;
+  --muted: #66724a;
+  --line: rgba(133, 148, 43, 0.16);
+  --brand: #6e812a;
+  --brand-soft: #8ba43b;
+  --ok: #5f7b1f;
+  --danger: #b4542f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: var(--text);
+  font-family: "DM Sans", "Avenir Next", "PingFang SC", "Noto Sans SC", sans-serif;
+  background:
+    radial-gradient(circle at 0% 12%, rgba(247, 201, 71, 0.22), transparent 26%),
+    radial-gradient(circle at 100% 0%, rgba(156, 181, 67, 0.18), transparent 24%),
+    radial-gradient(circle at 80% 100%, rgba(243, 228, 156, 0.18), transparent 26%),
+    linear-gradient(180deg, var(--bg-a), var(--bg-b));
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

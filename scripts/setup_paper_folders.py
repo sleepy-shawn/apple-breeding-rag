@@ -14,6 +14,8 @@ import csv
 import re
 from pathlib import Path
 
+from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
+
 
 def slugify(text: str, limit: int = 40) -> str:
     text = text.lower().strip()
@@ -45,12 +47,16 @@ def write_text(path: Path, content: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Create paper folder scaffold from checklist")
-    parser.add_argument("--input", required=True, help="Checklist CSV/TSV path")
-    parser.add_argument("--root", required=True, help="Output root directory, e.g. .../papers")
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Pipeline config TOML path")
+    parser.add_argument("--input", help="Checklist CSV/TSV path")
+    parser.add_argument("--root", help="Output root directory, e.g. .../papers")
     args = parser.parse_args()
 
-    in_path = Path(args.input)
-    root = Path(args.root)
+    layout = load_pipeline_layout(args.config)
+    ensure_pipeline_dirs(layout)
+
+    in_path = Path(args.input).resolve() if args.input else layout.checklist_file
+    root = Path(args.root).resolve() if args.root else layout.papers_root
     root.mkdir(parents=True, exist_ok=True)
 
     rows = read_rows(in_path)
@@ -116,6 +122,7 @@ def main() -> None:
         created += 1
 
     print(f"Prepared {created} paper folders under {root}")
+    print(f"checklist={in_path}")
 
 
 if __name__ == "__main__":

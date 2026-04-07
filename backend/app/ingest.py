@@ -1,9 +1,84 @@
 from __future__ import annotations
 
+import csv
+import re
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 from pypdf import PdfReader
+
+GENE_ID_RE = re.compile(r"\b(?:MD\d{2}G\d+|Md[A-Za-z][A-Za-z0-9]+|Ma\d+|LAR1)\b")
+ASSOCIATED_GENE_RE = re.compile(r"Associated gene:\s*([A-Za-z0-9_,; \-]+?)(?:\.| GWAS marker:| Published symbol:| P-value:)")
+
+
+def extract_candidate_gene(row: dict[str, str]) -> str:
+    gene_value = (row.get("gene") or "").strip()
+    evidence = (row.get("evidence_text") or "").strip()
+
+    direct_match = GENE_ID_RE.search(gene_value)
+    if direct_match:
+        return direct_match.group(0)
+
+    assoc_match = ASSOCIATED_GENE_RE.search(evidence)
+    if assoc_match:
+        genes = []
+        seen: set[str] = set()
+        for match in GENE_ID_RE.finditer(assoc_match.group(1)):
+            gene = match.group(0)
+            lowered = gene.lower()
+            if lowered not in seen:
+                genes.append(gene)
+                seen.add(lowered)
+        if genes:
+            return ", ".join(genes)
+
+    evidence_hits = []
+    seen_hits: set[str] = set()
+    for match in GENE_ID_RE.finditer(evidence):
+        gene = match.group(0)
+        lowered = gene.lower()
+        if lowered not in seen_hits:
+            evidence_hits.append(gene)
+            seen_hits.add(lowered)
+        if len(evidence_hits) >= 3:
+            break
+    return ", ".join(evidence_hits)
+
+
+def enrich_gene_row(row: dict[str, str]) -> dict[str, str]:
+    enriched = {k.lstrip("\ufeff") if isinstance(k, str) else k: str(v) for k, v in row.items() if k is not None}
+    extra_values = row.get(None)
+    if extra_values and isinstance(extra_values, list):
+        # Some small manually curated CSV rows contain one extra empty column
+        # before chr, shifting chr/pos/pvalue/variety/evidence_text to the right.
+        if enriched.get("chr") == "" and enriched.get("pos", "").lower().startswith(("chr", "lg")):
+            enriched["chr"] = enriched.get("pos", "")
+            enriched["pos"] = enriched.get("pvalue", "")
+            enriched["pvalue"] = enriched.get("variety", "")
+            enriched["variety"] = enriched.get("evidence_text", "")
+            enriched["evidence_text"] = " ".join(str(value) for value in extra_values if value)
+        elif not enriched.get("evidence_text"):
+            enriched["evidence_text"] = " ".join(str(value) for value in extra_values if value)
+    candidate_gene = extract_candidate_gene(enriched)
+    published_symbol = enriched.get("gene", "").strip()
+    trait = enriched.get("trait", "").strip()
+
+    if candidate_gene:
+        enriched["candidate_gene"] = candidate_gene
+    if published_symbol:
+        enriched["published_symbol"] = published_symbol
+
+    if candidate_gene and published_symbol and candidate_gene.lower() != published_symbol.lower():
+        enriched["display_title"] = f"{candidate_gene} ({published_symbol})"
+    elif candidate_gene:
+        enriched["display_title"] = candidate_gene
+    elif published_symbol:
+        enriched["display_title"] = published_symbol
+    elif trait:
+        enriched["display_title"] = f"{trait} locus"
+
+    return enriched
 
 
 def chunk_text(text: str, chunk_size: int = 900, overlap: int = 150) -> list[str]:
@@ -20,9 +95,10 @@ def chunk_text(text: str, chunk_size: int = 900, overlap: int = 150) -> list[str
     return chunks
 
 
-def load_pdf_chunks(pdf_dir: Path) -> list[dict]:
+def load_pdf_chunks(pdf_dir: Path, pdf_paths: Iterable[Path] | None = None) -> list[dict]:
     items: list[dict] = []
-    for pdf_path in sorted(pdf_dir.glob("*.pdf")):
+    selected_paths = list(pdf_paths) if pdf_paths is not None else sorted(pdf_dir.glob("*.pdf"))
+    for pdf_path in selected_paths:
         reader = PdfReader(str(pdf_path))
         title = pdf_path.stem
         for page_idx, page in enumerate(reader.pages):
@@ -44,14 +120,39 @@ def load_pdf_chunks(pdf_dir: Path) -> list[dict]:
 
 
 def load_gene_rows(gene_file: Path) -> list[dict]:
-    if gene_file.suffix.lower() in {".csv"}:
-        df = pd.read_csv(gene_file)
-    else:
+    if gene_file.suffix.lower() not in {".csv"}:
         df = pd.read_csv(gene_file, sep="\t")
+        rows = df.fillna("").to_dict(orient="records")
+    else:
+        with gene_file.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.reader(handle)
+            try:
+                header = next(reader)
+            except StopIteration:
+                return []
+
+            rows: list[dict[str, str]] = []
+            for line_no, row in enumerate(reader, start=2):
+                if not row:
+                    continue
+
+                # Some manually curated CSV rows contain one extra blank cell
+                # before the chromosome column. Drop that padding so the row
+                # can still be ingested instead of failing the whole dataset.
+                if len(row) == len(header) + 1 and len(header) >= 7 and row[6] == "":
+                    row = row[:6] + row[7:]
+
+                if len(row) != len(header):
+                    raise ValueError(
+                        f"Could not parse {gene_file.name} line {line_no}: "
+                        f"expected {len(header)} fields, got {len(row)}"
+                    )
+
+                rows.append({key: value for key, value in zip(header, row)})
 
     items: list[dict] = []
-    for idx, row in df.fillna("").iterrows():
-        row_dict = {k: str(v) for k, v in row.to_dict().items()}
+    for idx, row in enumerate(rows):
+        row_dict = enrich_gene_row(row)
         text = "; ".join([f"{k}: {v}" for k, v in row_dict.items() if v])
         if not text:
             continue

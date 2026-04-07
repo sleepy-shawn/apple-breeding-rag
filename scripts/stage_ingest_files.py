@@ -20,6 +20,8 @@ import csv
 import shutil
 from pathlib import Path
 
+from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
+
 
 def split_paths(value: str) -> list[Path]:
     if not value:
@@ -53,16 +55,20 @@ def copy_unique(src: Path, dst_dir: Path, preferred_name: str) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Stage files from ingest manifest")
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--papers-out", required=True)
-    parser.add_argument("--genes-out", required=True)
-    parser.add_argument("--report", required=True)
+    parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Pipeline config TOML path")
+    parser.add_argument("--manifest")
+    parser.add_argument("--papers-out")
+    parser.add_argument("--genes-out")
+    parser.add_argument("--report")
     args = parser.parse_args()
 
-    manifest_path = Path(args.manifest)
-    papers_out = Path(args.papers_out)
-    genes_out = Path(args.genes_out)
-    report = Path(args.report)
+    layout = load_pipeline_layout(args.config)
+    ensure_pipeline_dirs(layout)
+
+    manifest_path = Path(args.manifest).resolve() if args.manifest else layout.ingest_manifest_file
+    papers_out = Path(args.papers_out).resolve() if args.papers_out else layout.backend_papers_dir
+    genes_out = Path(args.genes_out).resolve() if args.genes_out else layout.backend_genes_raw_dir
+    report = Path(args.report).resolve() if args.report else layout.staged_manifest_file
 
     papers_out.mkdir(parents=True, exist_ok=True)
     genes_out.mkdir(parents=True, exist_ok=True)

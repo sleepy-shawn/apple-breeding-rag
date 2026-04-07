@@ -20,6 +20,8 @@ import re
 import shutil
 from pathlib import Path
 
+from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
+
 
 def detect_delimiter(path: Path) -> str:
     return "\t" if path.suffix.lower() == ".tsv" else ","
@@ -47,16 +49,22 @@ def norm(s: str) -> str:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Move ALL data into papers/*/raw")
-    p.add_argument("--root", required=True)
-    p.add_argument("--checklist", required=True)
+    p.add_argument("--config", default=str(DEFAULT_CONFIG_PATH), help="Pipeline config TOML path")
+    p.add_argument("--root")
+    p.add_argument("--checklist")
     p.add_argument("--copy", action="store_true", help="Copy instead of move")
     args = p.parse_args()
 
-    root = Path(args.root)
-    checklist_path = Path(args.checklist)
-    all_root = root / "ALL"
-    papers_root = root / "papers"
-    unmapped_root = root / "papers_unmapped"
+    layout = load_pipeline_layout(args.config)
+    ensure_pipeline_dirs(layout)
+
+    root = Path(args.root).resolve() if args.root else layout.workspace_root
+    checklist_path = Path(args.checklist).resolve() if args.checklist else layout.checklist_file
+    legacy_all_root = root / "ALL"
+    modern_all_root = root / "source" / "ALL"
+    all_root = legacy_all_root if legacy_all_root.exists() else modern_all_root
+    papers_root = layout.papers_root if not (root / "papers").exists() else root / "papers"
+    unmapped_root = root / "source" / "papers_unmapped"
 
     if not all_root.exists():
         raise FileNotFoundError(f"Missing folder: {all_root}")

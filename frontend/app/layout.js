@@ -1,3 +1,5 @@
+import './globals.css'
+
 export const metadata = {
   title: 'Apple Breeding RAG',
   description: 'RAG assistant for apple breeding papers and gene records'

@@ -1,0 +1,31 @@
+[workspace]
+root = "workspace/default"
+checkpoints_dir = "workspace/default/state"
+source_papers_dir = "workspace/default/source/papers"
+papers_root = "workspace/default/library/papers"
+manifests_dir = "workspace/default/manifests"
+evaluation_dir = "workspace/default/evaluation"
+reports_dir = "workspace/default/reports"
+
+[fetch]
+state_file = "workspace/default/state/fetch/papers_meta.json"
+min_year = 2018
+max_per_trait = 20
+
+[fetch.trait_queries]
+color = "(apple OR \"Malus domestica\") AND (skin color OR fruit color OR anthocyanin OR pigmentation OR red flesh) AND (breeding OR QTL OR GWAS OR marker OR locus OR \"candidate gene\")"
+acidity = "(apple OR \"Malus domestica\") AND (acidity OR malic acid OR titratable acidity) AND (breeding OR QTL OR GWAS OR marker OR locus OR \"candidate gene\")"
+sugar = "(apple OR \"Malus domestica\") AND (sugar OR sucrose OR sorbitol OR soluble solids) AND (breeding OR QTL OR GWAS OR marker OR locus OR \"candidate gene\")"
+disease = "(apple OR \"Malus domestica\") AND (disease resistance OR scab resistance OR powdery mildew OR Alternaria OR fire blight) AND (breeding OR QTL OR marker OR locus OR gene)"
+maturity = "(apple OR \"Malus domestica\") AND (ripening OR maturity OR harvest date OR fruit development) AND (breeding OR QTL OR GWAS OR marker OR locus OR \"candidate gene\")"
+firmness = "(apple OR \"Malus domestica\") AND (firmness OR texture OR crispness OR softening) AND (breeding OR QTL OR GWAS OR marker OR locus OR \"candidate gene\")"
+
+[manifests]
+checklist_file = "workspace/default/manifests/download_checklist.tsv"
+ingest_manifest_file = "workspace/default/manifests/ingest_manifest.csv"
+coverage_report_file = "workspace/default/reports/coverage_report.csv"
+
+[staging]
+backend_papers_dir = "backend/data/papers"
+backend_genes_raw_dir = "backend/data/genes/raw_candidates"
+staged_manifest_file = "backend/data/staged_manifest.csv"
