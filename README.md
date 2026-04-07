@@ -8,15 +8,15 @@
 - 前端：Next.js 单页问答界面，支持聊天、PDF 上传、基因表上传和浏览器本地 LLM Key 配置。
 - 数据 pipeline：已拆分为 `fetch -> curate -> manifest -> stage -> ingest -> eval` 的半自动流程。
 - 文献抓取：支持多源 PDF 尝试、抓取状态持久化和 `core/candidate/reject` 分层报告。
-- 基因/QTL/GWAS：已接入 GDR 原始表、GDR curated 表和少量人工确认的 harvest/sugar golden gene layer。
+- 基因/QTL/GWAS：已接入 GDR 原始表、GDR curated 表、少量人工确认的 firmness/harvest/sugar golden gene layer，并加入 QTL/GWAS 坐标参考系保护提示。
 - 自动评测：已形成固定题集、run manifest、summary、CSV/manual review 的可复现实验框架。
 
 当前最佳自动评测结果：
 
-- Run: `baseline_harvest_sugar_golden`
-- 路径：`workspace/default/evaluation/runs/baseline_harvest_sugar_golden/summary.md`
-- Overall: `7.8/10`
-- Firmness: `6.8/10`
+- Run: `baseline_firmness_texture_curated`
+- 路径：`workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.md`
+- Overall: `8.25/10`
+- Firmness: `8.6/10`
 - Color: `8.0/10`
 - Acidity: `8.2/10`
 - Harvest: `8.5/10`
@@ -25,7 +25,7 @@
 - Citation rate: `1.0`
 - Level distinction rate: `1.0`
 
-说明：harvest/sugar 的提升来自新增的人工确认核心知识层，后续仍建议由老师确认这些核心基因和表述是否适合作为毕业设计知识库的 golden layer。
+说明：firmness/harvest/sugar 的提升来自新增的人工确认核心知识层，后续仍建议由老师确认这些核心基因和表述是否适合作为毕业设计知识库的 golden layer。QTL/GWAS 坐标目前只作为来源元数据展示，不做跨参考基因组 liftover 或物理共定位合并。
 
 ## 系统结构
 
@@ -162,6 +162,7 @@ curl -X POST http://localhost:8000/api/chat \
 - `scripts/build_firmness_genes_subset.py`：构建硬度专项基因表。
 - `scripts/convert_gdr_to_genes.py`：将 GDR/QTL/GWAS 数据转换为可 ingest 的 gene 表。
 - `scripts/build_gdr_curated_layer.py`：从 GDR 数据生成 curated trait-specific layer。
+- `scripts/audit_qtl_reference_systems.py`：审计 QTL/GWAS 表中的 `chr/pos` 与参考基因组元数据，输出坐标参考系风险报告。
 
 评测与汇报：
 
@@ -176,9 +177,9 @@ curl -X POST http://localhost:8000/api/chat \
 python3 scripts/run_evaluation.py \
   --api-url http://localhost:8000/api/chat \
   --test-file workspace/default/evaluation/test_questions.jsonl \
-  --output-dir workspace/default/evaluation/runs/baseline_harvest_sugar_golden \
-  --run-name baseline_harvest_sugar_golden \
-  --notes "Added curated harvest/sugar golden gene collections for weak traits."
+  --output-dir workspace/default/evaluation/runs/baseline_firmness_texture_curated \
+  --run-name baseline_firmness_texture_curated \
+  --notes "Added curated firmness texture/Honeycrisp gene layer for weak F004 question."
 ```
 
 每次评测会输出：
@@ -203,13 +204,14 @@ python3 scripts/run_evaluation.py \
 
 ## 当前限制与下一步
 
-- Harvest/sugar 当前依赖少量人工 golden layer，适合作为系统能力验证，但需要老师确认其科学表述和证据强度。
+- Firmness/harvest/sugar 当前依赖少量人工 golden layer，适合作为系统能力验证，但需要老师确认其科学表述和证据强度。
 - GDR 数据中仍有不少 marker 或 trait label，不一定是标准基因名；curated layer 已改善可解释性，但仍需要更高质量的人工整理。
-- Firmness 仍有提升空间，尤其是 `Honeycrisp` 脆度/硬度相关题目前排证据不够稳定。
+- QTL/GWAS 坐标参考系并不完全一致；系统当前保留 source-reported `chr/pos` 和 `reference_genome`，但不进行 liftover，也不把不同参考基因组下的坐标直接合并。
+- Firmness 已通过 Honeycrisp/texture curated layer 明显改善，但相关证据仍建议继续用老师确认的核心论文和补充表替换成更严格的来源记录。
 - 当前自动评分包含规则化成分，不能完全替代老师人工判断；`manual_review.csv` 仍建议用于毕业设计结果复核。
 
 下一步优先级：
 
 1. 请老师确认核心文献和 golden gene layer。
-2. 针对 firmness 弱题补充 Honeycrisp/质地相关高质量论文和候选基因表。
-3. 将老师反馈后的核心论文和补充表整理为更可靠的 trait-specific curated dataset。
+2. 针对 firmness 的 curated layer 继续补来源 DOI、PMID、supplement 表编号和原始证据强度。
+3. 若后续要做坐标级共定位分析，再为每个来源补齐 reference build 与 liftover 规则；在此之前保持“只展示原始坐标，不跨研究合并”的策略。

@@ -10,6 +10,53 @@ from pypdf import PdfReader
 
 GENE_ID_RE = re.compile(r"\b(?:MD\d{2}G\d+|Md[A-Za-z][A-Za-z0-9]+|Ma\d+|LAR1)\b")
 ASSOCIATED_GENE_RE = re.compile(r"Associated gene:\s*([A-Za-z0-9_,; \-]+?)(?:\.| GWAS marker:| Published symbol:| P-value:)")
+REFERENCE_GENOME_RE = re.compile(
+    r"Reference genome:\s*(.*?)(?:\. Colocalizing marker:|\. Population/|\. Dataset:|\. Citation:|$)"
+)
+
+
+def infer_coordinate_metadata(row: dict[str, str]) -> dict[str, str]:
+    """Attach conservative coordinate provenance without attempting liftover."""
+    evidence = (row.get("evidence_text") or "").strip()
+    source_file = (row.get("source_file") or "").strip()
+    chr_value = (row.get("chr") or "").strip()
+    pos_value = (row.get("pos") or "").strip()
+    reference = (row.get("reference_genome") or "").strip()
+    coordinate_system = (row.get("coordinate_system") or "").strip()
+
+    if not reference:
+        match = REFERENCE_GENOME_RE.search(evidence)
+        if match:
+            reference = " ".join(match.group(1).split())
+
+    has_coordinate = bool(chr_value or pos_value)
+    if not coordinate_system and has_coordinate:
+        coordinate_system = "source-reported chr/pos"
+
+    if reference:
+        confidence = "source_reported"
+        note = f"Coordinates are source-reported against {reference}; do not compare with other genome builds without liftover."
+    elif has_coordinate:
+        confidence = "unverified"
+        if "gdr" in source_file.lower():
+            note = "Coordinate reference was not parsed from this row; treat chr/pos as GDR source-reported raw coordinates and do not merge across studies without checking the source genome build."
+        else:
+            note = "Coordinate reference is not confirmed; treat chr/pos as raw source coordinates and do not merge across studies without checking the source genome build."
+    else:
+        confidence = "not_available"
+        note = "No chr/pos coordinate was provided for this record."
+
+    result = {
+        "coordinate_confidence": confidence,
+        "coordinate_note": note,
+    }
+    if reference:
+        result["reference_genome"] = reference
+    elif has_coordinate:
+        result["reference_genome"] = "unknown"
+    if coordinate_system:
+        result["coordinate_system"] = coordinate_system
+    return result
 
 
 def extract_candidate_gene(row: dict[str, str]) -> str:
@@ -78,6 +125,7 @@ def enrich_gene_row(row: dict[str, str]) -> dict[str, str]:
     elif trait:
         enriched["display_title"] = f"{trait} locus"
 
+    enriched.update(infer_coordinate_metadata(enriched))
     return enriched
 
 
@@ -151,9 +199,15 @@ def load_gene_rows(gene_file: Path) -> list[dict]:
                 rows.append({key: value for key, value in zip(header, row)})
 
     items: list[dict] = []
+    metadata_only_fields = {
+        "reference_genome",
+        "coordinate_system",
+        "coordinate_confidence",
+        "coordinate_note",
+    }
     for idx, row in enumerate(rows):
         row_dict = enrich_gene_row(row)
-        text = "; ".join([f"{k}: {v}" for k, v in row_dict.items() if v])
+        text = "; ".join([f"{k}: {v}" for k, v in row_dict.items() if v and k not in metadata_only_fields])
         if not text:
             continue
         items.append(

@@ -120,6 +120,8 @@ class RetrievedItem:
     chunk_text: str
     page: int | None
     trait: str | None = None
+    reference_genome: str | None = None
+    coordinate_note: str | None = None
 
 
 class RagService:
@@ -292,6 +294,16 @@ class RagService:
                         chunk_text=document,
                         page=int(payload["page"]) if payload.get("page") else None,
                         trait=str(payload.get("trait")) if payload.get("trait") else None,
+                        reference_genome=(
+                            str(payload.get("reference_genome"))
+                            if payload.get("reference_genome")
+                            else None
+                        ),
+                        coordinate_note=(
+                            str(payload.get("coordinate_note"))
+                            if payload.get("coordinate_note")
+                            else None
+                        ),
                     )
                 )
 
@@ -414,15 +426,28 @@ class RagService:
                 citation += f" | {src.title}"
             if src.page:
                 citation += f" | p.{src.page}"
+            if src.reference_genome:
+                citation += f" | ref={src.reference_genome}"
             snippet = src.chunk_text[:220].replace("\n", " ").strip()
             line = f"{citation} | evidence_level={level}\n{snippet}"
             context_lines.append(line)
-            summary_line = f"- {label}: {snippet} [{idx}]"
+            coord_note = ""
+            if src.coordinate_note and (
+                src.reference_genome == "unknown" or "not confirmed" in src.coordinate_note.lower()
+            ):
+                coord_note = f" 坐标提示: {src.coordinate_note}"
+            summary_line = f"- {label}: {snippet}{coord_note} [{idx}]"
             if level == "A":
                 level_a_lines.append(summary_line)
             else:
                 level_b_lines.append(summary_line)
         context = "\n\n".join(context_lines)
+        has_uncertain_coordinates = any(
+            src.coordinate_note and (
+                src.reference_genome == "unknown" or "not confirmed" in src.coordinate_note.lower()
+            )
+            for src in sources
+        )
 
         llm = self._make_llm_client(
             api_key=llm_api_key if llm_api_key is not None else self.settings.llm_api_key,
@@ -442,6 +467,12 @@ class RagService:
                 + "\n".join(level_a_lines[:3])
                 + "\n\n【Level B 间接证据】\n"
                 + "\n".join(level_b_lines[:3])
+                + (
+                    "\n\n【坐标参考系提示】\n"
+                    "部分 QTL/GWAS 记录缺少明确参考基因组；chr/pos 只能作为原始来源坐标展示，不能直接跨研究合并或比较。"
+                    if has_uncertain_coordinates
+                    else ""
+                )
                 + "\n\n引用: "
                 + "".join(f"[{i}]" for i in range(1, min(len(sources), 6) + 1))
             )
@@ -457,8 +488,9 @@ class RagService:
             "1. 仅根据提供的证据回答；若证据不足，明确说明'证据不足'\n"
             "2. 答案分两段：【Level A 直接证据】（GWAS/QTL/p值等遗传关联证据）和【Level B 间接证据】（表达分析/功能实验等支持性证据）\n"
             "3. 基因名称使用标准命名（如MdMYB1、MdALMT9），说明染色体位置和性状关联强度\n"
-            "4. 答案末尾必须列出引用编号（如[1][2][3]）\n"
-            "5. 如有中文问题，用中文回答；英文问题用英文回答"
+            "4. 若证据中的chr/pos缺少明确参考基因组，必须提示'坐标参考系未确认，不能直接跨研究比较或合并'\n"
+            "5. 答案末尾必须列出引用编号（如[1][2][3]）\n"
+            "6. 如有中文问题，用中文回答；英文问题用英文回答"
         )
         user_prompt = f"问题:\n{question}\n\n证据:\n{context}"
 

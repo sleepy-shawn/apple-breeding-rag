@@ -94,7 +94,7 @@ def ingest_genes(filename: str = "genes.csv") -> IngestResponse:
 
 
 @app.post(f"{settings.api_prefix}/ingest/genes_firmness", response_model=IngestResponse)
-def ingest_genes_firmness(filename: str = "genes_firmness.csv") -> IngestResponse:
+def ingest_genes_firmness(filename: str = "genes_firmness_curated.csv") -> IngestResponse:
     return ingest_genes_impl(filename=filename, collection="genes_firmness", replace=True)
 
 
@@ -438,6 +438,8 @@ def chat(body: ChatRequest) -> ChatResponse:
             chunk_text=s.chunk_text,
             page=s.page,
             trait=s.trait,
+            reference_genome=s.reference_genome,
+            coordinate_note=s.coordinate_note,
         )
         for s in sources
     ]

@@ -12,6 +12,7 @@ backend/data/**
 !backend/data/genes/
 !backend/data/genes/sample_genes.csv
 !backend/data/genes/genes_firmness.csv
+!backend/data/genes/genes_firmness_curated.csv
 !backend/data/genes/genes_color_curated.csv
 !backend/data/genes/genes_acidity_curated.csv
 !backend/data/genes/genes_harvest_curated.csv
@@ -28,6 +29,18 @@ workspace/default/**
 !workspace/default/evaluation/runs/baseline_harvest_sugar_golden/summary.json
 !workspace/default/evaluation/runs/baseline_harvest_sugar_golden/results.csv
 !workspace/default/evaluation/runs/baseline_harvest_sugar_golden/run_manifest.json
+!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/
+!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/summary.md
+!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/summary.json
+!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/results.csv
+!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/run_manifest.json
+!workspace/default/evaluation/runs/baseline_firmness_texture_curated/
+!workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.md
+!workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.json
+!workspace/default/evaluation/runs/baseline_firmness_texture_curated/results.csv
+!workspace/default/evaluation/runs/baseline_firmness_texture_curated/run_manifest.json
+!workspace/default/reports/
+!workspace/default/reports/qtl_reference_system_audit.md
 !workspace/default/**/.gitkeep
 !workspace/README.md
 archive/graduation-materials/**

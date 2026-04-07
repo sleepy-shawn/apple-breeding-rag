@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     auto_ingest_on_startup: bool = Field(default=True, alias="AUTO_INGEST_ON_STARTUP")
     auto_ingest_genes_filename: str = Field(default="genes.csv", alias="AUTO_INGEST_GENES_FILENAME")
     auto_ingest_genes_firmness_filename: str = Field(
-        default="genes_firmness.csv",
+        default="genes_firmness_curated.csv",
         alias="AUTO_INGEST_GENES_FIRMNESS_FILENAME",
     )
     auto_ingest_genes_color_filename: str = Field(

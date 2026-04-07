@@ -20,6 +20,8 @@ class SourceItem(BaseModel):
     chunk_text: str
     page: int | None = None
     trait: str | None = None
+    reference_genome: str | None = None
+    coordinate_note: str | None = None
 
 
 class ChatResponse(BaseModel):
