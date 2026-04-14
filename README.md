@@ -1,67 +1,74 @@
 # Apple Breeding RAG
 
-面向苹果品质育种场景的 RAG 原型系统。项目将论文 PDF、基因/QTL/GWAS 表格和人工整理的核心基因证据接入同一个问答服务，用于回答苹果果实硬度、果皮颜色、酸度、采收期和糖度相关问题，并保留证据引用与自动化评测结果。
+面向苹果品质育种场景的检索增强问答系统。项目将论文 PDF、基因/QTL/GWAS 结构化表格、GDR 数据和人工整理的核心证据统一接入 FastAPI + Qdrant 后端，为苹果果实硬度、果皮颜色、酸度、采收期和糖度相关问题提供带引用的回答、数据入库能力和可复现实验评测。
 
-## 当前进展
+## 项目概览
 
-- 后端：FastAPI + Qdrant，支持论文、通用基因表、trait-specific gene collections 和 GDR curated layer。
-- 前端：Next.js 单页问答界面，支持聊天、PDF 上传、基因表上传和浏览器本地 LLM Key 配置。
-- 数据 pipeline：已拆分为 `fetch -> curate -> manifest -> stage -> ingest -> eval` 的半自动流程。
-- 文献抓取：支持多源 PDF 尝试、抓取状态持久化和 `core/candidate/reject` 分层报告。
-- 基因/QTL/GWAS：已接入 GDR 原始表、GDR curated 表、少量人工确认的 firmness/harvest/sugar golden gene layer，并加入 QTL/GWAS 坐标参考系保护提示。
-- 自动评测：已形成固定题集、run manifest、summary、CSV/manual review 的可复现实验框架。
+- 后端：FastAPI + Qdrant，支持论文库、通用基因库、trait-specific gene collections、GDR layer 与 curated/golden layer。
+- 前端：Next.js 单页界面，支持聊天、PDF 上传、基因表上传和浏览器本地 LLM Key 配置。
+- 数据流程：形成了 `fetch -> curate -> manifest -> stage -> ingest -> evaluate` 的半自动 pipeline。
+- 文献抓取：支持候选抓取、PDF 尝试下载、metadata 持久化和 `core/candidate/reject` 分层。
+- 结构化数据：已接入 trait-specific gene tables、GDR 原始表、GDR curated layer 以及少量人工确认的核心基因层。
+- 评测：已形成固定题集、run manifest、summary、manual review 和 baseline 对比框架。
 
 当前最佳自动评测结果：
 
-- Run: `baseline_firmness_texture_curated`
+- Run：`baseline_firmness_texture_curated`
 - 路径：`workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.md`
-- Overall: `8.25/10`
-- Firmness: `8.6/10`
-- Color: `8.0/10`
-- Acidity: `8.2/10`
-- Harvest: `8.5/10`
-- Sugar: `9.0/10`
-- Retrieval hit rate: `1.0`
-- Citation rate: `1.0`
-- Level distinction rate: `1.0`
+- Overall：`8.25/10`
+- Firmness：`8.6/10`
+- Color：`8.0/10`
+- Acidity：`8.2/10`
+- Harvest：`8.5/10`
+- Sugar：`9.0/10`
+- Retrieval hit rate：`1.0`
+- Citation rate：`1.0`
+- Level distinction rate：`1.0`
 
-说明：firmness/harvest/sugar 的提升来自新增的人工确认核心知识层，后续仍建议由老师确认这些核心基因和表述是否适合作为毕业设计知识库的 golden layer。QTL/GWAS 坐标目前只作为来源元数据展示，不做跨参考基因组 liftover 或物理共定位合并。
+说明：`firmness / harvest / sugar` 的提升部分来自人工确认的核心知识层，当前适合作为系统能力验证与毕业设计展示版本；如果要作为更严格的科研知识库，仍建议老师继续确认核心基因、来源论文和证据强度。
 
-## 系统结构
+## 顶层目录
 
 ```text
 apple-breeding-rag/
-  backend/                 FastAPI API、RAG 检索、ingest 和配置
-  frontend/                Next.js Web 原型
-  scripts/                 抓取、整理、GDR 清洗、评测和报告脚本
-  docs/                    论文写作材料、研究笔记、老师审阅文档和架构图
+  backend/                 FastAPI API、RAG 检索、ingest 和运行配置
+  frontend/                Next.js Web 前端
+  scripts/                 pipeline、数据清洗、评测、报告和论文辅助脚本
+  docs/                    论文写作材料、研究笔记、老师审阅资料与架构图
+  archive/                 模板、学校材料、历史交付物和不直接参与运行的资料
   config/pipeline.toml     pipeline 统一路径配置
-  workspace/default/       自动化抓取、评测、报告和中间状态工作区
+  workspace/default/       抓取、评测、报告和中间状态工作区
 ```
 
-脚本目录已进一步拆分，详见 `scripts/README.md`。
+配套说明文档：
+
+- `docs/README.md`：文档与论文材料说明
+- `scripts/README.md`：脚本分层与常用入口
+- `archive/README.md`：毕业设计归档资料说明
+- `backend/data/README.md`：运行时数据目录说明
+- `workspace/README.md`：自动化工作区说明
+
+## 系统结构
 
 核心后端模块：
 
 - `backend/app/main.py`：API 路由、上传接口、ingest endpoint 和启动时自动入库。
 - `backend/app/rag.py`：trait 识别、collection 路由、rerank、引用组织和无 LLM fallback。
-- `backend/app/ingest.py`：PDF/CSV 入库、基因表字段清洗、GDR/golden layer 文本构造。
+- `backend/app/ingest.py`：PDF/CSV 入库、字段清洗、GDR/golden layer 文本构造。
 - `backend/app/settings.py`：Qdrant collection、自动 ingest 文件名和服务配置。
 - `backend/app/schemas.py`：聊天请求、引用 source item 和上传响应 schema。
 
-## 数据与 Collections
+核心数据区：
 
-主要数据目录：
-
-- `backend/data/papers/`：已进入后端的论文 PDF 与补充材料。
-- `backend/data/genes/`：通用基因表、trait-specific 表、GDR 原始/curated 表和人工 golden layer。
-- `docs/`：论文写作草稿、交接说明、老师审阅表和架构图等非运行文档。
-- `workspace/default/source/`：自动抓取的原始论文和 metadata。
+- `backend/data/papers/`：已入库的主论文 PDF 与补充材料。
+- `backend/data/genes/`：通用基因表、trait-specific gene tables、GDR/GWAS/QTL 数据和 curated layer。
+- `workspace/default/source/`：自动抓取得到的原始论文、JSON metadata 和候选池。
 - `workspace/default/library/`：人工确认后的标准论文库。
-- `workspace/default/reports/`：抓取分层、导师打分表、论文覆盖率和 thesis bundle。
-- `workspace/default/evaluation/`：评测题集和 baseline 运行结果。
+- `workspace/default/manifests/`：checklist、ingest manifest 和中间控制表。
+- `workspace/default/evaluation/`：固定题集和多轮 baseline 运行结果。
+- `workspace/default/reports/`：论文库存、抓取分层、老师审阅表和 thesis bundle。
 
-当前后端主要 collections：
+当前主要 collections：
 
 - `papers`
 - `genes`
@@ -83,9 +90,9 @@ apple-breeding-rag/
 - `genes_gdr_curated_harvest`
 - `genes_gdr_curated_sugar`
 
-## 运行方式
+## 快速开始
 
-先准备环境文件：
+准备环境文件：
 
 ```bash
 cd /Users/shuaige/code/apple-breeding-rag
@@ -94,13 +101,13 @@ cp backend/.env.example backend/.env
 
 常用环境变量：
 
-- `LLM_API_KEY`：大模型 API Key。未配置时，系统返回检索摘要而不是完整生成答案。
-- `LLM_BASE_URL`：兼容 OpenAI 的服务地址。
-- `LLM_MODEL`：模型名。
-- `AUTO_INGEST_ON_STARTUP=true|false`：后端启动时是否自动检查并导入数据。
-- `AUTO_INGEST_GENES_FILENAME=genes.csv`：通用基因表文件。
+- `LLM_API_KEY`：大模型 API Key。未配置时，系统返回检索摘要而非完整生成答案。
+- `LLM_BASE_URL`：兼容 OpenAI 的推理服务地址。
+- `LLM_MODEL`：聊天模型名称。
+- `AUTO_INGEST_ON_STARTUP=true|false`：后端启动时是否自动执行 ingest。
+- `AUTO_INGEST_GENES_FILENAME=genes.csv`：通用基因表默认文件名。
 
-启动服务：
+初始化工作区并启动服务：
 
 ```bash
 python3 scripts/pipeline/init_pipeline_workspace.py
@@ -109,13 +116,13 @@ docker compose up -d --build
 
 服务地址：
 
-- Web: [http://localhost:3000](http://localhost:3000)
-- API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
-- Qdrant Dashboard: [http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+- Web：[http://localhost:3000](http://localhost:3000)
+- API Docs：[http://localhost:8000/docs](http://localhost:8000/docs)
+- Qdrant Dashboard：[http://localhost:6333/dashboard](http://localhost:6333/dashboard)
 
-## 手动 Ingest
+## 常用接口
 
-常用接口：
+手动触发 ingest：
 
 ```bash
 curl -X POST http://localhost:8000/api/ingest/papers
@@ -129,7 +136,7 @@ curl -X POST http://localhost:8000/api/ingest/genes_gdr
 curl -X POST http://localhost:8000/api/ingest/genes_gdr_curated
 ```
 
-问答接口示例：
+聊天接口示例：
 
 ```bash
 curl -X POST http://localhost:8000/api/chat \
@@ -141,42 +148,53 @@ curl -X POST http://localhost:8000/api/chat \
   }'
 ```
 
-## Pipeline 脚本
+## 典型工作流
 
-论文抓取与筛选：
+1. 初始化工作区：`python3 scripts/pipeline/init_pipeline_workspace.py`
+2. 抓取候选论文：`python3 scripts/pipeline/fetch_papers.py`
+3. 对候选论文分层：`python3 scripts/pipeline/rank_fetched_papers.py`
+4. 将老师确认的核心论文或补充材料整理到 `workspace/default/library/papers/`
+5. 生成 ingest manifest：`python3 scripts/pipeline/build_ingest_manifest.py`
+6. staging 到运行数据区：`python3 scripts/pipeline/stage_ingest_files.py`
+7. 重建服务或手动 ingest 指定 collection
+8. 运行评测：`python3 scripts/evaluation/run_evaluation.py`
+9. 导出老师审阅表或论文库存报告
 
-- `scripts/pipeline/fetch_papers.py`：抓取论文候选到 `workspace/default/source/papers/`。
-- `scripts/pipeline/rank_fetched_papers.py`：对抓取结果打分并输出 `core/candidate/reject`。
-- `scripts/pipeline/mine_citations.py`：从已有论文出发挖掘引用/相似候选。
+## 常用脚本入口
 
-数据整理与 staging：
+文献 pipeline：
 
-- `scripts/pipeline/init_pipeline_workspace.py`：初始化工作区目录。
-- `scripts/pipeline/setup_paper_folders.py`：从 checklist 创建标准论文目录。
-- `scripts/pipeline/build_ingest_manifest.py`：从标准论文目录生成 ingest 清单。
-- `scripts/pipeline/stage_ingest_files.py`：把 ingest-ready 文件复制到 `backend/data/`。
-- `scripts/pipeline/scan_papers_coverage.py`：扫描论文覆盖率并输出报告。
-- `scripts/pipeline/reorganize_rag_data.py`：整理原始数据目录。
+- `scripts/pipeline/fetch_papers.py`
+- `scripts/pipeline/rank_fetched_papers.py`
+- `scripts/pipeline/mine_citations.py`
+- `scripts/pipeline/setup_paper_folders.py`
+- `scripts/pipeline/build_ingest_manifest.py`
+- `scripts/pipeline/stage_ingest_files.py`
+- `scripts/pipeline/scan_papers_coverage.py`
 
-基因/GDR 处理：
+结构化数据处理：
 
-- `scripts/data_prep/convert_gene_candidates_to_csv.py`：原始候选文件批量转 CSV。
-- `scripts/data_prep/build_structured_genes.py`：从扁平文本提取结构化字段。
-- `scripts/data_prep/build_trait_subsets.py`：按 trait 拆分为 `genes_*.csv`。
-- `scripts/data_prep/build_firmness_genes_subset.py`：构建硬度专项基因表。
-- `scripts/data_prep/convert_gdr_to_genes.py`：将 GDR/QTL/GWAS 数据转换为可 ingest 的 gene 表。
-- `scripts/data_prep/build_gdr_curated_layer.py`：从 GDR 数据生成 curated trait-specific layer。
-- `scripts/evaluation/audit_qtl_reference_systems.py`：审计 QTL/GWAS 表中的 `chr/pos` 与参考基因组元数据，输出坐标参考系风险报告。
+- `scripts/data_prep/convert_gene_candidates_to_csv.py`
+- `scripts/data_prep/build_structured_genes.py`
+- `scripts/data_prep/build_trait_subsets.py`
+- `scripts/data_prep/build_firmness_genes_subset.py`
+- `scripts/data_prep/convert_gdr_to_genes.py`
+- `scripts/data_prep/build_gdr_curated_layer.py`
 
 评测与汇报：
 
-- `scripts/evaluation/run_evaluation.py`：运行固定题集，输出 `results.csv/jsonl`、`summary.md/json` 和 `manual_review.csv`。
-- `scripts/reports/export_backend_papers_review_sheet.py`：导出后端已入库论文，生成给老师打分的 Excel 表。
-- `scripts/reports/export_paper_inventory_report.py`：导出后端正式库和 source 抓取池的论文库存盘点。
+- `scripts/evaluation/run_evaluation.py`
+- `scripts/evaluation/audit_qtl_reference_systems.py`
+- `scripts/reports/export_backend_papers_review_sheet.py`
+- `scripts/reports/export_paper_inventory_report.py`
 
-## 自动化评测
+论文辅助：
 
-当前推荐用固定题集评估每轮改动：
+- `scripts/thesis/generate_thesis_word_draft.py`
+
+## 自动评测
+
+推荐把每轮重要改动都固化成一个 baseline：
 
 ```bash
 python3 scripts/evaluation/run_evaluation.py \
@@ -196,27 +214,15 @@ python3 scripts/evaluation/run_evaluation.py \
 - `summary.md`
 - `run_manifest.json`
 
-## 推荐工作流
+## 当前限制
 
-1. 初始化工作区：`python3 scripts/pipeline/init_pipeline_workspace.py`
-2. 抓取候选论文：`python3 scripts/pipeline/fetch_papers.py`
-3. 对抓取结果分层：`python3 scripts/pipeline/rank_fetched_papers.py`
-4. 将老师确认的核心文献或补充表整理到标准库。
-5. 生成 ingest manifest 与覆盖率报告。
-6. staging 到 `backend/data/`。
-7. 重建后端和 Qdrant collections。
-8. 运行 `scripts/evaluation/run_evaluation.py`，把结果保存成一个新 baseline。
+- `firmness / harvest / sugar` 仍部分依赖人工 curated/golden layer，更适合作为毕业设计展示版本而非完全自动化科研知识库。
+- GDR 原始表中仍包含 marker 名、trait label 和跨研究异构字段，curated layer 已提升可解释性，但仍需要更严格的人工清洗。
+- QTL/GWAS 坐标参考系并不完全一致；系统当前只保留来源中的 `chr/pos` 与 `reference_genome`，不做 liftover，也不直接跨研究合并坐标。
+- 当前自动评分仍带有规则化成分，不能替代老师人工审阅，建议结合 `manual_review.csv` 使用。
 
-## 当前限制与下一步
+## 下一步建议
 
-- Firmness/harvest/sugar 当前依赖少量人工 golden layer，适合作为系统能力验证，但需要老师确认其科学表述和证据强度。
-- GDR 数据中仍有不少 marker 或 trait label，不一定是标准基因名；curated layer 已改善可解释性，但仍需要更高质量的人工整理。
-- QTL/GWAS 坐标参考系并不完全一致；系统当前保留 source-reported `chr/pos` 和 `reference_genome`，但不进行 liftover，也不把不同参考基因组下的坐标直接合并。
-- Firmness 已通过 Honeycrisp/texture curated layer 明显改善，但相关证据仍建议继续用老师确认的核心论文和补充表替换成更严格的来源记录。
-- 当前自动评分包含规则化成分，不能完全替代老师人工判断；`manual_review.csv` 仍建议用于毕业设计结果复核。
-
-下一步优先级：
-
-1. 请老师确认核心文献和 golden gene layer。
-2. 针对 firmness 的 curated layer 继续补来源 DOI、PMID、supplement 表编号和原始证据强度。
-3. 若后续要做坐标级共定位分析，再为每个来源补齐 reference build 与 liftover 规则；在此之前保持“只展示原始坐标，不跨研究合并”的策略。
+1. 继续请老师确认核心文献、golden gene layer 和关键表述。
+2. 为人工 curated 层补齐 DOI、PMID、supplement 表编号和证据强度说明。
+3. 如果后续需要做坐标级共定位分析，再单独引入参考基因组版本管理与 liftover 方案。
