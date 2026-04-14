@@ -2,7 +2,7 @@
 将 GDR (Genome Database for Rosaceae) 导出的 QTL/GWAS CSV 转换为本系统的基因CSV格式。
 
 用法:
-    python3 scripts/convert_gdr_to_genes.py \
+    python3 scripts/data_prep/convert_gdr_to_genes.py \
         --input /path/to/tripal_megasearch_download.csv \
         --output-dir backend/data/genes
 """

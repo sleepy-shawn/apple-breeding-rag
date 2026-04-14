@@ -4,7 +4,7 @@
 Outputs one CSV with per-paper ingest readiness and candidate files.
 
 Usage:
-  python scripts/build_ingest_manifest.py \
+  python scripts/pipeline/build_ingest_manifest.py \
     --papers-root "/Users/shuaige/code/rag原数据/papers" \
     --output "/Users/shuaige/code/rag原数据/ingest_manifest.csv"
 """
@@ -14,7 +14,10 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 

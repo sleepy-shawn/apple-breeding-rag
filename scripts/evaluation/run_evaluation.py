@@ -2,7 +2,7 @@
 RAG系统标准评估脚本
 
 用法:
-    python scripts/run_evaluation.py \
+    python scripts/evaluation/run_evaluation.py \
         --test-file workspace/default/evaluation/test_questions.jsonl \
         --api-url http://localhost:8000/api/chat \
         --output-dir workspace/default/evaluation/runs/baseline_current

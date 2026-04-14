@@ -6,7 +6,7 @@
 - Write a manifest of copied files for traceability
 
 Usage:
-  python scripts/stage_ingest_files.py \
+  python scripts/pipeline/stage_ingest_files.py \
     --manifest "/Users/shuaige/code/rag原数据/ingest_manifest.csv" \
     --papers-out "/Users/shuaige/code/apple-breeding-rag/backend/data/papers" \
     --genes-out "/Users/shuaige/code/apple-breeding-rag/backend/data/genes/raw_candidates" \
@@ -18,7 +18,10 @@ from __future__ import annotations
 import argparse
 import csv
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 

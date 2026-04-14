@@ -2,7 +2,7 @@
 """Extract a download checklist CSV from an xlsx file.
 
 Usage:
-  python scripts/extract_download_checklist.py \
+  python scripts/data_prep/extract_download_checklist.py \
     --input "/path/to/副本变异位点统计.xlsx" \
     --output "/path/to/download_checklist.csv"
 """

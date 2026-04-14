@@ -6,9 +6,9 @@
 输出：按优先级排序的下载清单（含DOI / PMC / 标题 / 摘要关键词）
 
 用法：
-    python3 scripts/mine_citations.py
-    python3 scripts/mine_citations.py --seeds-only firmness color acidity
-    python3 scripts/mine_citations.py --max-per-seed 50 --min-year 2019
+    python3 scripts/pipeline/mine_citations.py
+    python3 scripts/pipeline/mine_citations.py --seeds-only firmness color acidity
+    python3 scripts/pipeline/mine_citations.py --max-per-seed 50 --min-year 2019
 """
 
 from __future__ import annotations

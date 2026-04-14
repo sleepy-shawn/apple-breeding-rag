@@ -2,7 +2,7 @@
 """Rank fetched papers into core/candidate/reject tiers.
 
 Usage:
-  python scripts/rank_fetched_papers.py
+  python scripts/pipeline/rank_fetched_papers.py
 """
 
 from __future__ import annotations
@@ -11,8 +11,11 @@ import argparse
 import csv
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 

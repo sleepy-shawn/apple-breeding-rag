@@ -6,7 +6,7 @@ or a trait-relevant QTL/GWAS signal, then deduplicates noisy marker-level
 records into a more retrieval-friendly CSV.
 
 Usage:
-    python3 scripts/build_gdr_curated_layer.py \
+    python3 scripts/data_prep/build_gdr_curated_layer.py \
         --input-dir backend/data/genes \
         --output-dir backend/data/genes
 """

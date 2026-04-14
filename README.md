@@ -34,9 +34,12 @@ apple-breeding-rag/
   backend/                 FastAPI API、RAG 检索、ingest 和配置
   frontend/                Next.js Web 原型
   scripts/                 抓取、整理、GDR 清洗、评测和报告脚本
+  docs/                    论文写作材料、研究笔记、老师审阅文档和架构图
   config/pipeline.toml     pipeline 统一路径配置
   workspace/default/       自动化抓取、评测、报告和中间状态工作区
 ```
+
+脚本目录已进一步拆分，详见 `scripts/README.md`。
 
 核心后端模块：
 
@@ -52,6 +55,7 @@ apple-breeding-rag/
 
 - `backend/data/papers/`：已进入后端的论文 PDF 与补充材料。
 - `backend/data/genes/`：通用基因表、trait-specific 表、GDR 原始/curated 表和人工 golden layer。
+- `docs/`：论文写作草稿、交接说明、老师审阅表和架构图等非运行文档。
 - `workspace/default/source/`：自动抓取的原始论文和 metadata。
 - `workspace/default/library/`：人工确认后的标准论文库。
 - `workspace/default/reports/`：抓取分层、导师打分表、论文覆盖率和 thesis bundle。
@@ -99,7 +103,7 @@ cp backend/.env.example backend/.env
 启动服务：
 
 ```bash
-python3 scripts/init_pipeline_workspace.py
+python3 scripts/pipeline/init_pipeline_workspace.py
 docker compose up -d --build
 ```
 
@@ -141,40 +145,41 @@ curl -X POST http://localhost:8000/api/chat \
 
 论文抓取与筛选：
 
-- `scripts/fetch_papers.py`：抓取论文候选到 `workspace/default/source/papers/`。
-- `scripts/rank_fetched_papers.py`：对抓取结果打分并输出 `core/candidate/reject`。
-- `scripts/mine_citations.py`：从已有论文出发挖掘引用/相似候选。
+- `scripts/pipeline/fetch_papers.py`：抓取论文候选到 `workspace/default/source/papers/`。
+- `scripts/pipeline/rank_fetched_papers.py`：对抓取结果打分并输出 `core/candidate/reject`。
+- `scripts/pipeline/mine_citations.py`：从已有论文出发挖掘引用/相似候选。
 
 数据整理与 staging：
 
-- `scripts/init_pipeline_workspace.py`：初始化工作区目录。
-- `scripts/setup_paper_folders.py`：从 checklist 创建标准论文目录。
-- `scripts/build_ingest_manifest.py`：从标准论文目录生成 ingest 清单。
-- `scripts/stage_ingest_files.py`：把 ingest-ready 文件复制到 `backend/data/`。
-- `scripts/scan_papers_coverage.py`：扫描论文覆盖率并输出报告。
-- `scripts/reorganize_rag_data.py`：整理原始数据目录。
+- `scripts/pipeline/init_pipeline_workspace.py`：初始化工作区目录。
+- `scripts/pipeline/setup_paper_folders.py`：从 checklist 创建标准论文目录。
+- `scripts/pipeline/build_ingest_manifest.py`：从标准论文目录生成 ingest 清单。
+- `scripts/pipeline/stage_ingest_files.py`：把 ingest-ready 文件复制到 `backend/data/`。
+- `scripts/pipeline/scan_papers_coverage.py`：扫描论文覆盖率并输出报告。
+- `scripts/pipeline/reorganize_rag_data.py`：整理原始数据目录。
 
 基因/GDR 处理：
 
-- `scripts/convert_gene_candidates_to_csv.py`：原始候选文件批量转 CSV。
-- `scripts/build_structured_genes.py`：从扁平文本提取结构化字段。
-- `scripts/build_trait_subsets.py`：按 trait 拆分为 `genes_*.csv`。
-- `scripts/build_firmness_genes_subset.py`：构建硬度专项基因表。
-- `scripts/convert_gdr_to_genes.py`：将 GDR/QTL/GWAS 数据转换为可 ingest 的 gene 表。
-- `scripts/build_gdr_curated_layer.py`：从 GDR 数据生成 curated trait-specific layer。
-- `scripts/audit_qtl_reference_systems.py`：审计 QTL/GWAS 表中的 `chr/pos` 与参考基因组元数据，输出坐标参考系风险报告。
+- `scripts/data_prep/convert_gene_candidates_to_csv.py`：原始候选文件批量转 CSV。
+- `scripts/data_prep/build_structured_genes.py`：从扁平文本提取结构化字段。
+- `scripts/data_prep/build_trait_subsets.py`：按 trait 拆分为 `genes_*.csv`。
+- `scripts/data_prep/build_firmness_genes_subset.py`：构建硬度专项基因表。
+- `scripts/data_prep/convert_gdr_to_genes.py`：将 GDR/QTL/GWAS 数据转换为可 ingest 的 gene 表。
+- `scripts/data_prep/build_gdr_curated_layer.py`：从 GDR 数据生成 curated trait-specific layer。
+- `scripts/evaluation/audit_qtl_reference_systems.py`：审计 QTL/GWAS 表中的 `chr/pos` 与参考基因组元数据，输出坐标参考系风险报告。
 
 评测与汇报：
 
-- `scripts/run_evaluation.py`：运行固定题集，输出 `results.csv/jsonl`、`summary.md/json` 和 `manual_review.csv`。
-- `scripts/export_backend_papers_review_sheet.py`：导出后端已入库论文，生成给老师打分的 Excel 表。
+- `scripts/evaluation/run_evaluation.py`：运行固定题集，输出 `results.csv/jsonl`、`summary.md/json` 和 `manual_review.csv`。
+- `scripts/reports/export_backend_papers_review_sheet.py`：导出后端已入库论文，生成给老师打分的 Excel 表。
+- `scripts/reports/export_paper_inventory_report.py`：导出后端正式库和 source 抓取池的论文库存盘点。
 
 ## 自动化评测
 
 当前推荐用固定题集评估每轮改动：
 
 ```bash
-python3 scripts/run_evaluation.py \
+python3 scripts/evaluation/run_evaluation.py \
   --api-url http://localhost:8000/api/chat \
   --test-file workspace/default/evaluation/test_questions.jsonl \
   --output-dir workspace/default/evaluation/runs/baseline_firmness_texture_curated \
@@ -193,14 +198,14 @@ python3 scripts/run_evaluation.py \
 
 ## 推荐工作流
 
-1. 初始化工作区：`python3 scripts/init_pipeline_workspace.py`
-2. 抓取候选论文：`python3 scripts/fetch_papers.py`
-3. 对抓取结果分层：`python3 scripts/rank_fetched_papers.py`
+1. 初始化工作区：`python3 scripts/pipeline/init_pipeline_workspace.py`
+2. 抓取候选论文：`python3 scripts/pipeline/fetch_papers.py`
+3. 对抓取结果分层：`python3 scripts/pipeline/rank_fetched_papers.py`
 4. 将老师确认的核心文献或补充表整理到标准库。
 5. 生成 ingest manifest 与覆盖率报告。
 6. staging 到 `backend/data/`。
 7. 重建后端和 Qdrant collections。
-8. 运行 `scripts/run_evaluation.py`，把结果保存成一个新 baseline。
+8. 运行 `scripts/evaluation/run_evaluation.py`，把结果保存成一个新 baseline。
 
 ## 当前限制与下一步
 

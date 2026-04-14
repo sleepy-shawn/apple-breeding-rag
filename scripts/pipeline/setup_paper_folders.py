@@ -2,7 +2,7 @@
 """Create per-paper folder structure from a checklist CSV/TSV.
 
 Example:
-  python scripts/setup_paper_folders.py \
+  python scripts/pipeline/setup_paper_folders.py \
     --input "/Users/shuaige/Documents/rag原数据/download_checklist.tsv" \
     --root "/Users/shuaige/Documents/rag原数据/papers"
 """
@@ -12,7 +12,10 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 

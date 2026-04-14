@@ -7,7 +7,7 @@ Rules:
 - Unmapped folders go to papers_unmapped/<folder>/raw.
 
 Usage:
-  python scripts/reorganize_rag_data.py \
+  python scripts/pipeline/reorganize_rag_data.py \
     --root "/Users/shuaige/code/rag原数据" \
     --checklist "/Users/shuaige/code/rag原数据/download_checklist.tsv"
 """
@@ -18,7 +18,10 @@ import argparse
 import csv
 import re
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 

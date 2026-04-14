@@ -2,7 +2,7 @@
 """Scan papers folder coverage and output CSV summary.
 
 Usage:
-  python scripts/scan_papers_coverage.py \
+  python scripts/pipeline/scan_papers_coverage.py \
     --papers-root "/Users/shuaige/code/rag原数据/papers" \
     --output "/Users/shuaige/code/rag原数据/coverage_report.csv"
 """
@@ -12,7 +12,10 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from lib.pipeline_layout import DEFAULT_CONFIG_PATH, ensure_pipeline_dirs, load_pipeline_layout
 
