@@ -1,13 +1,13 @@
 {
-  "run_name": "baseline_harvest_sugar_golden",
-  "created_at": "2026-04-07T16:02:28",
+  "run_name": "baseline_final_paper_set",
+  "created_at": "2026-04-22T15:15:21",
   "api_url": "http://localhost:8000/api/chat",
   "route": "auto",
   "top_k": 6,
-  "sleep": 0.2,
+  "sleep": 1.0,
   "test_file": "/Users/shuaige/code/apple-breeding-rag/workspace/default/evaluation/test_questions.jsonl",
   "question_count": 20,
-  "notes": "Added curated harvest/sugar golden gene collections for weak traits.",
+  "notes": "",
   "env": {
     "EMBEDDING_MODEL": "",
     "LLM_MODEL": "",

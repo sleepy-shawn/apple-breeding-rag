@@ -2,10 +2,12 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+.venv-verify/
 node_modules/
 .next/
+~$*.docx
 
-# Large/local datasets
+# Large/local runtime data
 backend/data/**
 !backend/data/
 !backend/data/README.md
@@ -19,30 +21,34 @@ backend/data/**
 !backend/data/genes/genes_sugar_curated.csv
 !backend/data/genes/genes_gdr_curated.csv
 !backend/data/genes/genes_gdr_curated_*.csv
+
+# Keep only the active workspace artifacts in git
 workspace/default/**
 !workspace/default/
+!workspace/default/.gitkeep
+!workspace/default/README.md
 !workspace/default/evaluation/
+!workspace/default/evaluation/.gitkeep
+!workspace/default/evaluation/eval_protocol.md
 !workspace/default/evaluation/test_questions.jsonl
 !workspace/default/evaluation/runs/
-!workspace/default/evaluation/runs/baseline_harvest_sugar_golden/
-!workspace/default/evaluation/runs/baseline_harvest_sugar_golden/summary.md
-!workspace/default/evaluation/runs/baseline_harvest_sugar_golden/summary.json
-!workspace/default/evaluation/runs/baseline_harvest_sugar_golden/results.csv
-!workspace/default/evaluation/runs/baseline_harvest_sugar_golden/run_manifest.json
-!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/
-!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/summary.md
-!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/summary.json
-!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/results.csv
-!workspace/default/evaluation/runs/baseline_qtl_reference_guard_v2/run_manifest.json
-!workspace/default/evaluation/runs/baseline_firmness_texture_curated/
-!workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.md
-!workspace/default/evaluation/runs/baseline_firmness_texture_curated/summary.json
-!workspace/default/evaluation/runs/baseline_firmness_texture_curated/results.csv
-!workspace/default/evaluation/runs/baseline_firmness_texture_curated/run_manifest.json
+!workspace/default/evaluation/runs/baseline_final_paper_set/
+!workspace/default/evaluation/runs/baseline_final_paper_set/summary.md
+!workspace/default/evaluation/runs/baseline_final_paper_set/summary.json
+!workspace/default/evaluation/runs/baseline_final_paper_set/results.csv
+!workspace/default/evaluation/runs/baseline_final_paper_set/run_manifest.json
 !workspace/default/reports/
+!workspace/default/reports/.gitkeep
+!workspace/default/reports/backend_paper_inventory.csv
+!workspace/default/reports/paper_inventory_summary.md
 !workspace/default/reports/qtl_reference_system_audit.md
 !workspace/default/**/.gitkeep
 !workspace/README.md
-archive/graduation-materials/**
-!archive/graduation-materials/
-!archive/graduation-materials/.gitkeep
+
+# Local thesis and archive materials
+archive/history/**
+archive/school-materials/**
+thesis/*.docx
+thesis/*.pdf
+thesis/*.xlsx
+thesis/*.zip

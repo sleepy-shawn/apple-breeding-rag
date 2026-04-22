@@ -1,14 +1,14 @@
 {
   "manifest": {
-    "run_name": "baseline_firmness_texture_curated",
-    "created_at": "2026-04-07T16:38:33",
+    "run_name": "baseline_final_paper_set",
+    "created_at": "2026-04-22T15:15:21",
     "api_url": "http://localhost:8000/api/chat",
     "route": "auto",
     "top_k": 6,
-    "sleep": 0.2,
+    "sleep": 1.0,
     "test_file": "/Users/shuaige/code/apple-breeding-rag/workspace/default/evaluation/test_questions.jsonl",
     "question_count": 20,
-    "notes": "Added curated firmness texture/Honeycrisp gene layer for weak F004 question.",
+    "notes": "",
     "env": {
       "EMBEDDING_MODEL": "",
       "LLM_MODEL": "",
@@ -17,7 +17,7 @@
     }
   },
   "overall": {
-    "avg_total": 8.25,
+    "avg_total": 8.2,
     "citation_rate": 1.0,
     "level_distinction_rate": 1.0,
     "retrieval_hit_rate": 1.0,
@@ -40,8 +40,8 @@
       "count": 5
     },
     "general": {
-      "avg_total": 7.5,
-      "avg_gene_hit_ratio": 0.67,
+      "avg_total": 7.0,
+      "avg_gene_hit_ratio": 0.5,
       "count": 2
     },
     "harvest": {

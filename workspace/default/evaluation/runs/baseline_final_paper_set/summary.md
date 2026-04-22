@@ -1,6 +1,6 @@
-# Evaluation Summary: baseline_harvest_sugar_golden
+# Evaluation Summary: baseline_final_paper_set
 
-- Created at: `2026-04-07T16:02:28`
+- Created at: `2026-04-22T15:15:21`
 - API URL: `http://localhost:8000/api/chat`
 - Route: `auto`
 - Top-k: `6`
@@ -8,7 +8,7 @@
 
 ## Overall
 
-- Avg total: `7.8/10`
+- Avg total: `8.2/10`
 - Retrieval hit rate: `1.0`
 - Citation rate: `1.0`
 - Level distinction rate: `1.0`
@@ -20,8 +20,8 @@
 |------|-----------|--------------------|-------|
 | acidity | 8.2 | 0.77 | 5 |
 | color | 8.0 | 0.77 | 5 |
-| firmness | 6.8 | 0.47 | 5 |
-| general | 7.5 | 0.67 | 2 |
+| firmness | 8.6 | 0.87 | 5 |
+| general | 7.0 | 0.5 | 2 |
 | harvest | 8.5 | 0.88 | 2 |
 | sugar | 9.0 | 1.0 | 1 |
 

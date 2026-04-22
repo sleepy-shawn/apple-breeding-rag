@@ -10,12 +10,10 @@
 
 - `genes/`
   - 结构化基因/QTL/GWAS 数据。
-  - 当前包含：
-    - `genes.csv`：通用基因表
-    - `genes_<trait>.csv`：trait-specific gene tables
-    - `genes_gdr*.csv`：GDR/QTL/GWAS 原始与拆分结果
-    - `genes_*_curated.csv`：人工或规则清洗后的 curated layer
-    - `sample_genes.csv`：轻量示例数据
+  - 顶层只保留当前运行所需的最终版 CSV。
+  - 原始候选材料保留在 `genes/raw_candidates/`。
+  - 中间产物、早期子集和范围外数据统一移入 `genes/archive/`。
+  - 详细说明见 `genes/README.md`。
 
 - `staged_manifest.csv`
   - staging 阶段生成的文件清单，用于记录本次复制进入运行区的数据。
@@ -24,7 +22,7 @@
 
 本目录下的数据通常来自三条路径：
 
-1. `workspace/default/library/` 中人工确认后的论文库，经 manifest 和 staging 后进入本目录。
+1. 由 `scripts/pipeline/init_pipeline_workspace.py` 初始化出的 workspace 工作区中，人工确认后的论文库经 manifest 和 staging 后进入本目录。
 2. `scripts/data_prep/` 生成的结构化基因/GDR/curated CSV。
 3. Web 前端上传或 API ingest 接口触发的运行时写入。
 

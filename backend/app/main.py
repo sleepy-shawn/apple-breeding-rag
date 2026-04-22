@@ -88,6 +88,13 @@ def ingest_papers() -> IngestResponse:
     return ingest_papers_impl(replace=True)
 
 
+@app.post(f"{settings.api_prefix}/ingest/papers/add", response_model=IngestResponse)
+def ingest_papers_add(filenames: list[str]) -> IngestResponse:
+    base = Path("data/papers")
+    pdf_paths = [base / f for f in filenames if (base / f).exists()]
+    return ingest_papers_impl(replace=False, pdf_paths=pdf_paths)
+
+
 @app.post(f"{settings.api_prefix}/ingest/genes", response_model=IngestResponse)
 def ingest_genes(filename: str = "genes.csv") -> IngestResponse:
     return ingest_genes_impl(filename=filename, collection="genes", replace=True)
