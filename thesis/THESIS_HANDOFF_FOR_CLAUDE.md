@@ -1,15 +1,15 @@
 # Apple Breeding RAG Thesis Handoff
 
-本文档用于给 Claude 或其他写作助手快速建立当前最终版本上下文。  
-请以本文件为准，不要再引用旧的 `docs/` 结构或早期库存数字。
+本文档用于给 Claude 或其他写作助手快速建立当前论文定稿版本上下文。  
+请以本文件为准，不要再引用旧的 20 题 baseline 口径。
 
-更新时间：2026-04-22
+更新时间：2026-04-23
 
 ## 1. 一句话项目定义
 
 本项目是一个面向苹果品质育种场景的专题化 RAG 系统，融合论文 PDF、补充材料、结构化 gene 表、QTL/GWAS 数据和人工 curated 核心知识层，用于回答“某个品质性状相关的重要候选基因是什么、证据来自哪里、证据强弱如何”这一类科研问题。
 
-聚焦的 trait：
+聚焦的五个核心 trait：
 
 - `firmness`
 - `color`
@@ -17,7 +17,7 @@
 - `harvest`
 - `sugar`
 
-## 2. 论文写作时应采用的最终版本口径
+## 2. 论文写作时应采用的最终数据口径
 
 ### 2.1 最终论文库
 
@@ -33,34 +33,16 @@
 - `workspace/default/reports/paper_inventory_summary.md`
 - `workspace/default/reports/backend_paper_inventory.csv`
 
-### 2.2 本轮最终新增并已 ingest 的论文
-
-2026-04-22 已作为“最终版新增论文”加入并完成 ingest 的 paper ID：
-
-- `055`
-- `056`
-- `057`
-- `058`
-- `059`
-- `060`
-- `062`
-- `063`
-- `064`
-- `065`
-- `066`
-
-这些论文已经进入后端 `papers` collection。
-
-### 2.3 当前 papers collection 状态
+### 2.2 当前 papers collection 状态
 
 - Qdrant collection：`papers`
 - 当前向量点数：`2934`
 
-这说明新增 final papers 已经进入在线检索系统，不再只是本地 PDF 文件。
+这说明最终论文集已经进入在线检索系统，不再只是本地 PDF 文件。
 
-### 2.4 当前最终 gene 数据口径
+### 2.3 当前最终 gene 数据口径
 
-当前 `backend/data/genes/` 已经收口为三层：
+当前 `backend/data/genes/` 当前仓库中只保留最终运行层：
 
 1. 最终运行层
    - `genes.csv`
@@ -70,14 +52,6 @@
    - `genes_gdr_curated.csv`
    - `genes_gdr_curated_<trait>.csv`
 
-2. 原始材料层
-   - `backend/data/genes/raw_candidates/`
-   - 用于保留补充材料和原始候选基因表，支撑可复现的数据转换流程
-
-3. 历史归档层
-   - `backend/data/genes/archive/`
-   - 包含早期 trait 子表、中间产物、空表和当前毕设主线未接入的数据
-
 可直接写进论文的口径是：
 
 - 当前最终 gene 运行层共有 `18` 个核心 CSV
@@ -85,44 +59,41 @@
 
 ## 3. 最终应引用的评测结果
 
-### 3.1 final thesis version 的冻结结果
+### 3.1 当前论文最终结果
 
-如果论文要写“当前最终版本结果”，应优先采用：
+如果论文要写“当前最终版本结果”，应统一采用：
 
-- run name：`baseline_final_paper_set`
-- 路径：`workspace/default/evaluation/runs/baseline_final_paper_set/summary.md`
+- 题集：`28` 题
+- 类别：`6` 类题目
+- 配置：`A0 No-RAG`、`A1 Papers-only`、`A2 Genes-only`、`A3 Hybrid`
+- 机制维度：`LLM-as-Judge` 自动评分（DeepSeek）
+- 最终口径：`A3 Hybrid（完整系统）`
+
+对应文件：
+
+- `workspace/default/evaluation/ablation/run_notes.md`
+- `workspace/default/evaluation/ablation/ablation_table.md`
+- `workspace/default/evaluation/ablation/trait_detail_table.md`
+- `workspace/default/evaluation/Table_5_1_ablation_results.docx`
 
 结果如下：
 
-| Trait | Avg Total |
-|------|-----------|
-| Overall | 8.2/10 |
-| Firmness | 8.6/10 |
-| Color | 8.0/10 |
-| Acidity | 8.2/10 |
-| Harvest | 8.5/10 |
-| Sugar | 9.0/10 |
-| General | 7.0/10 |
+| Category | Avg Total |
+|----------|-----------|
+| Overall | 7.07/10 |
+| Color | 8.2/10 |
+| Firmness | 7.6/10 |
+| Harvest | 7.5/10 |
+| Acidity | 7.0/10 |
+| Sugar | 6.25/10 |
+| General | 5.8/10 |
 
-其他指标：
+其他关键指标：
 
-- Retrieval hit rate：`1.0`
-- Citation rate：`1.0`
-- Level distinction rate：`1.0`
-- Error count：`0`
-
-### 3.2 旧 baseline 如何处理
-
-项目中还有一版更早的最佳结果：
-
-- `baseline_firmness_texture_curated`
-- Overall：`8.25/10`
-
-但这版结果对应的是 final paper freeze 之前的论文库。  
-如果论文强调“最终系统版本”，不要把 `8.25/10` 当作最终结果直接使用。更稳妥的写法是：
-
-- `baseline_firmness_texture_curated` 用于说明系统迭代过程中的历史最佳结果
-- `baseline_final_paper_set` 用于说明当前最终论文集冻结后的系统结果
+- Citation rate：`100%`
+- Evidence stratification rate：`86%`
+- Gene recall：约 `81%`
+- 最优配置：`A3 Hybrid`
 
 ## 4. 当前项目目录结构
 
@@ -132,21 +103,14 @@
 
 - `backend/`
   - FastAPI、RAG 检索、ingest、数据配置。
-
 - `frontend/`
   - Next.js Web 前端、聊天界面、上传入口、LLM 浏览器本地配置。
-
 - `scripts/`
   - 当前仍在使用的主线脚本。
-
 - `workspace/`
-  - 当前工作区，只保留最终 baseline 与精选报告。
-
+  - 当前论文直接引用的评测结果与报告。
 - `thesis/`
-  - 当前论文正文、格式修订版、Claude handoff。
-
-- `archive/`
-  - 学校材料、历史归档和历史脚本。
+  - 当前论文正文、活跃主文件、handoff。
 
 ## 5. 系统方法可以怎样写进论文
 
@@ -159,7 +123,7 @@
    基于 FastAPI 和 Qdrant 构建后端，支持 trait-specific collection、route、rerank 和证据型回答。
 
 3. 评测与验证层  
-   通过固定题集、自动评测脚本和多轮 baseline 对系统进行比较。
+   通过固定题集、自动评测脚本、消融实验和 LLM-as-Judge 对系统进行比较。
 
 4. 前端交互层  
    提供聊天、上传 PDF、上传 gene 表和本地 LLM Key 配置。
@@ -223,9 +187,9 @@
 1. 面向苹果品质育种场景构建了专题化 RAG 系统。
 2. 融合论文 PDF、补充材料、结构化 gene 表和 GDR/QTL/GWAS 数据。
 3. 设计了 trait-specific route 与 rerank 机制，提高相关性和可解释性。
-4. 建立了可重复的自动评测框架。
+4. 建立了包含 A0-A3 消融实验和 LLM-as-Judge 的可重复评测框架。
 5. 对 QTL/GWAS 坐标参考系采用了保护性审计与提示机制，避免错误解释。
-6. 对最终 gene 数据目录进行了运行层、原始材料层和历史归档层的分层治理，提升了项目可维护性。
+6. 对最终 gene 数据目录进行了运行层优先治理，提升了项目可维护性。
 
 ## 8. 论文里必须克制的表述
 
@@ -263,16 +227,17 @@
 - 用于发现弱项和检索回归
 - 最终有效性仍需导师或领域专家确认
 
-## 9. 当前推荐 Claude 参考的本地文件
+## 9. 当前推荐写作助手参考的本地文件
 
 优先级从高到低：
 
 1. `CURRENT_STATUS.md`
 2. `thesis/THESIS_HANDOFF_FOR_CLAUDE.md`
-3. `workspace/default/evaluation/runs/baseline_final_paper_set/summary.md`
-4. `workspace/default/reports/paper_inventory_summary.md`
-5. `README.md`
-6. `backend/data/genes/README.md`
+3. `workspace/default/evaluation/ablation/run_notes.md`
+4. `workspace/default/evaluation/ablation/ablation_table.md`
+5. `workspace/default/evaluation/ablation/trait_detail_table.md`
+6. `workspace/default/reports/paper_inventory_summary.md`
+7. `backend/data/genes/README.md`
 
 如果需要展开细节，再看：
 
@@ -285,14 +250,14 @@
 
 可以参考下面这段思路：
 
-> 本研究面向苹果品质育种场景，构建了一个融合论文 PDF、结构化基因表、QTL/GWAS 数据及人工 curated 核心知识层的检索增强知识问答系统。系统通过 trait-specific collection、问题路由、重排序和证据分层输出，实现了对苹果硬度、颜色、酸度、采收期和糖度等问题的专题化问答。基于最终冻结的论文集与固定测试题集，系统在自动评测中取得了较稳定表现，并能够以带引用的方式返回候选基因及其证据来源，为苹果育种知识服务系统的构建提供了工程基础。
+> 本研究面向苹果品质育种场景，构建了一个融合论文 PDF、结构化基因表、QTL/GWAS 数据及人工 curated 核心知识层的检索增强知识问答系统。系统通过 trait-specific collection、问题路由、重排序和证据分层输出，实现了对苹果硬度、颜色、酸度、采收期和糖度等问题的专题化问答。基于包含 28 道题的消融实验与 LLM-as-Judge 评测，完整系统在引用可追溯性和证据分层方面表现稳定，并能够以带引用的方式返回候选基因及其证据来源，为苹果育种知识服务系统的构建提供了工程基础。
 
 ## 11. Cleanup Assumptions Already Applied
 
-为了把项目收成“毕业设计最终版本”，本轮已经默认采用以下假设：
+为了把项目收成“毕业设计最终版本”，当前默认采用以下假设：
 
-1. `thesis/葛帅毕业论文_格式修订版.docx` 作为当前活跃论文主文件。
-2. 候选抓取池已转入 `archive/history/workspace-source/`，不再作为当前 workspace 活跃内容。
-3. 旧 baseline `baseline_firmness_texture_curated` 已转入 `archive/history/evaluation-runs/`，当前结果只保留 `baseline_final_paper_set`。
-4. `workspace/default/` 已收缩为最终 baseline 与精选报告快照，旧 pipeline 骨架不再保留在当前工作区。
-5. 历史阶段脚本已转入 `archive/history/scripts/`，当前 `scripts/` 只保留主线脚本。
+1. `thesis/实验进行中-gpt修改版本.docx` 作为当前活跃论文主文件。
+2. 候选抓取池和旧抓取中间产物已不再保留在当前仓库中。
+3. 当前论文结果统一采用 `workspace/default/evaluation/ablation/`。
+4. `workspace/default/` 已收缩为最终评测结果与精选报告快照，旧 pipeline 骨架不再保留在当前工作区。
+5. 当前 `scripts/` 只保留主线脚本与当前仍会使用的评测脚本。

@@ -1,6 +1,6 @@
 # Backend Data Directory
 
-`backend/data/` 是后端运行时的数据入口。FastAPI 服务和 ingest 流程会从这里读取论文 PDF、基因表和 staging 后的清单文件，并将它们写入 Qdrant collections。
+`backend/data/` 是后端运行时的数据入口。FastAPI 服务和 ingest 流程会从这里读取论文 PDF 与结构化基因表，并将它们写入 Qdrant collections。
 
 ## 目录结构
 
@@ -10,13 +10,8 @@
 
 - `genes/`
   - 结构化基因/QTL/GWAS 数据。
-  - 顶层只保留当前运行所需的最终版 CSV。
-  - 原始候选材料保留在 `genes/raw_candidates/`。
-  - 中间产物、早期子集和范围外数据统一移入 `genes/archive/`。
+  - 只保留当前运行所需的最终版 CSV。
   - 详细说明见 `genes/README.md`。
-
-- `staged_manifest.csv`
-  - staging 阶段生成的文件清单，用于记录本次复制进入运行区的数据。
 
 ## 数据来源
 
@@ -44,4 +39,4 @@
 
 ## 说明
 
-`backend/data/` 更像“运行时数据入口”而不是原始资料仓库。原始抓取、候选池和待整理文件应优先放入 `workspace/` 或 `archive/`，只有准备参与在线检索和向量化的数据才进入这里。
+`backend/data/` 更像“运行时数据入口”而不是原始资料仓库。当前仓库中只保留准备参与在线检索和向量化的数据。

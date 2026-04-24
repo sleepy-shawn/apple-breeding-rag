@@ -1,8 +1,8 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Apple Breeding RAG',
-  description: 'RAG assistant for apple breeding papers and gene records'
+  title: 'Apple Breeding Atlas',
+  description: 'Workspace for apple breeding papers, genes, and evidence'
 }
 
 export default function RootLayout({ children }) {

@@ -9,11 +9,10 @@ apple-breeding-rag/
   backend/                 后端 API、RAG 检索、ingest 和运行配置
   frontend/                Next.js Web 前端
   scripts/                 当前仍在使用的主线脚本
-  thesis/                  当前正在维护的论文文件和 Claude 交接说明
-  archive/                 学校材料和历史归档
-  workspace/               当前最终 baseline 与精选报告
+  thesis/                  当前正在维护的论文文件和 handoff
+  workspace/               当前论文仍直接引用的评测结果与报告
   config/                  pipeline 配置
-  CURRENT_STATUS.md        当前系统状态与下一步建议
+  CURRENT_STATUS.md        当前系统状态与论文口径说明
 ```
 
 ## 你现在最常用的几个位置
@@ -25,20 +24,18 @@ apple-breeding-rag/
 - `scripts/`
   - 当前主线脚本入口。
 - `thesis/`
-  - 当前论文主文件和 Claude 交接说明。
+  - 当前论文主文件和写作 handoff。
 - `CURRENT_STATUS.md`
-  - 当前系统进展、最佳 baseline、已知局限和下一步优先级。
+  - 当前系统进展、论文最终口径、已知局限。
 - `workspace/default/`
-  - 当前工作区，只保留最终 baseline 与精选报告。
+  - 当前工作区，只保留论文直接引用的评测结果与精选报告。
 
 ## 当前系统状态
 
 - 系统已经具备论文 PDF 检索、gene/QTL/GWAS 检索、trait-specific 路由、证据型回答输出和自动评测能力。
 - 当前最终论文库为 `50` 组论文条目、`70` 个 PDF，其中主论文 `54` 个、补充材料 `16` 个。
-- 2026-04-22 新增 final papers 已完成 ingest，`papers` collection 当前为 `2934` 个向量点。
-- 当前最终版 baseline 为 `baseline_final_paper_set`，Overall 为 `8.2/10`。
-- `baseline_firmness_texture_curated` 仍可作为历史对照，但不建议再当作最终论文版本结果直接引用。
-- 候选抓取池、旧 baseline 和导师审阅表已移出当前工作区，不再作为活跃文件保留。
+- `papers` collection 当前为 `2934` 个向量点。
+- 当前论文采用的最终评测口径为 `28` 题消融实验；完整系统 `A3 Hybrid` 综合得分 `7.07/10`，引用率 `100%`，证据分层率 `86%`。
 
 详细状态见：
 
@@ -80,33 +77,32 @@ docker compose up -d --build
 评测与审计：
 
 - `python3 scripts/evaluation/run_evaluation.py`
+- `python3 scripts/evaluation/run_ablation.py`
 - `python3 scripts/evaluation/audit_qtl_reference_systems.py`
 
 论文辅助：
 
-- `python3 scripts/thesis/normalize_nwsuaf_thesis_format.py thesis/葛帅毕业论文_格式修订版.docx`
+- `python3 scripts/thesis/normalize_nwsuaf_thesis_format.py thesis/实验进行中-gpt修改版本.docx`
 
 ## 运行数据与工作区
 
 - `backend/data/`
   - 后端运行时数据入口，只放准备参与在线检索和向量化的数据。
-- `workspace/default/evaluation/runs/baseline_final_paper_set/`
-  - 当前冻结的最终论文版 baseline。
+- `workspace/default/evaluation/ablation/`
+  - 当前论文采用的 28 题消融实验结果、表 5-1 来源和按题型汇总。
 - `workspace/default/reports/`
   - 当前仍需要直接查看的精选报告。
 
-## 归档原则
+## 保留原则
 
 - 正在使用的论文文件放到 `thesis/`。
-- 学校要求、模板和过程性材料统一放到 `archive/school-materials/`。
-- 历史 baseline、旧报告、中期材料和旧版本论文统一放到 `archive/history/`。
-- 历史性的一次性脚本统一放到 `archive/history/scripts/`。
-- `workspace/` 只保留最终 baseline 和当前仍直接引用的报告。
+- `workspace/` 只保留论文当前仍直接引用的评测结果和报告。
+- 运行时代码和当前论文无关的历史产物不再保留在仓库中。
 
 ## 推荐阅读顺序
 
 1. `CURRENT_STATUS.md`
 2. `thesis/README.md`
-3. `scripts/README.md`
-4. `workspace/README.md`
-5. `archive/README.md`
+3. `workspace/default/evaluation/ablation/run_notes.md`
+4. `workspace/default/evaluation/ablation/ablation_table.md`
+5. `workspace/default/evaluation/ablation/trait_detail_table.md`

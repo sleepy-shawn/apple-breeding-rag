@@ -5,17 +5,16 @@
 ## 当前保留内容
 
 - `evaluation/`
-  - 固定题集、评测协议和最终 baseline。
+  - 固定题集、评测协议、28 题消融实验结果和论文表格来源。
 - `reports/`
   - 论文库存盘点和 QTL 参考系审计报告。
 
 ## 当前冻结结果
 
 - 最终论文库盘点：`reports/paper_inventory_summary.md`
-- 最终论文版 baseline：`evaluation/runs/baseline_final_paper_set/`
-- 旧 baseline 若要保留，应转入 `archive/history/`，不要继续当作当前版本主结果
-- 候选抓取池已归档到 `archive/history/workspace-source/source_papers_candidate_pool_2026-04-22/`
+- 当前论文主评测结果：`evaluation/ablation/`
+- 表 5-1 导出文件：`evaluation/Table_5_1_ablation_results.docx`
 
 ## 说明
 
-旧评测结果、候选抓取池、状态缓存和旧报告已经迁移到 `archive/history/`。如果后续需要重新开启抓取和 staging 流程，可以运行 `python3 scripts/pipeline/init_pipeline_workspace.py` 重新生成完整工作区骨架。
+旧评测结果、候选抓取池、状态缓存和历史报告已经从当前仓库中清理。当前论文和答辩应统一引用 `evaluation/ablation/` 下的结果。
