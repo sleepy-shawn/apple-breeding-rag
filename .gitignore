@@ -1,11 +1,62 @@
-__pycache__/
-*.pyc
-.env
+# macOS/editor noise
 .DS_Store
+._*
+*.swp
+*.swo
+*~
+~$*.docx
+
+# Local secrets and machine-specific settings
+.env
+.env.*
+!.env.example
+!.env.*.example
+.claude/settings.local.json
+
+# Python runtime, virtualenvs, caches, and test output
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
 .venv-verify/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Node/Next.js dependencies and build output
 node_modules/
 .next/
-~$*.docx
+out/
+dist/
+build/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs and local process files
+*.log
+logs/
+*.pid
+*.seed
+
+# Local archives and exported bundles
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+frontend.zip
 
 # Large/local runtime data
 backend/data/**
@@ -22,7 +73,34 @@ backend/data/**
 !backend/data/genes/genes_gdr_curated.csv
 !backend/data/genes/genes_gdr_curated_*.csv
 
-# Keep only the active workspace artifacts in git
+# RAG/vector database artifacts
+qdrant_storage/
+storage/
+uploads/
+chroma/
+chroma_db/
+chromadb/
+lancedb/
+vector_store/
+vectorstore/
+faiss_index/
+*.faiss
+*.index
+*.ann
+*.hnsw
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.parquet
+*.feather
+*.sqlite
+*.sqlite3
+*.db
+*.duckdb
+
+# Keep only selected workspace artifacts in git
 workspace/default/**
 !workspace/default/
 !workspace/default/.gitkeep
