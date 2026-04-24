@@ -1,108 +1,207 @@
-# Apple Breeding RAG
+# 苹果品质育种知识问答系统
 
-面向苹果品质育种场景的检索增强问答系统。项目将论文 PDF、结构化基因表、QTL/GWAS 数据和人工确认的核心知识层统一接入 FastAPI + Qdrant 后端，为苹果果实硬度、颜色、酸度、采收期和糖度相关问题提供带引用的回答、数据入库能力和可复现实验评测。
+**Apple Breeding RAG — Retrieval-Augmented Generation for Apple Fruit Quality Traits**
 
-## 当前项目结构
+面向苹果品质育种场景的多模态检索增强问答系统。系统将学术文献、结构化基因数据和 QTL/GWAS 数据库统一接入向量检索引擎，针对苹果果实品质相关问题自动检索证据并生成带引用的结构化回答。
 
-```text
-apple-breeding-rag/
-  backend/                 后端 API、RAG 检索、ingest 和运行配置
-  frontend/                Next.js Web 前端
-  scripts/                 当前仍在使用的主线脚本
-  thesis/                  当前正在维护的论文文件和 handoff
-  workspace/               当前论文仍直接引用的评测结果与报告
-  config/                  pipeline 配置
-  CURRENT_STATUS.md        当前系统状态与论文口径说明
+---
+
+## 项目简介
+
+苹果基因组与果实品质性状研究文献分散、基因数据异构，人工检索效率低、难以交叉比对。本系统将 **70 篇 PDF 文献**和 **18 个基因/QTL/GWAS 数据集**统一向量化，构建多层级知识库，并通过检索增强生成（RAG）技术，根据问题类型自动路由到最相关的数据源，输出带文献引用和证据分层的回答。
+
+覆盖 5 个苹果果实品质性状：
+
+| 性状 | 关键词示例 |
+|------|-----------|
+| 果实硬度（Firmness） | 细胞壁降解、果胶酶、质地 |
+| 果皮颜色（Color） | 花青素、MYB 转录因子、光照响应 |
+| 果实酸度（Acidity） | 苹果酸、液泡 pH、MA 基因座 |
+| 采收期（Harvest Date） | 乙烯合成、成熟指数、采前落果 |
+| 糖度（Sugar Content） | 可溶性固形物、Brix、蔗糖转运 |
+
+---
+
+## 系统架构
+
+```
+用户提问
+   │
+   ▼
+前端 Web UI (Next.js)
+   │  HTTP
+   ▼
+FastAPI 后端
+   ├─ 路由判断（关键词分析）
+   │     ├─ 论文路由  → Qdrant: papers collection（2934 向量点）
+   │     ├─ 基因路由  → Qdrant: 18 个 gene/QTL/GWAS collection
+   │     └─ 混合路由  → 论文 + 基因双路检索，合并排序
+   │
+   ├─ fastembed 语义编码（all-MiniLM-L6-v2）
+   │
+   └─ LLM 生成（DeepSeek / 任意 OpenAI 兼容接口）
+         │
+         ▼
+   结构化回答（Level A 直接证据 / Level B 间接证据 + 文献引用）
 ```
 
-## 你现在最常用的几个位置
+---
 
-- `backend/`
-  - FastAPI 服务、RAG 路由、Qdrant ingest 和数据配置。
-- `frontend/`
-  - Web 界面与上传交互。
-- `scripts/`
-  - 当前主线脚本入口。
-- `thesis/`
-  - 当前论文主文件和写作 handoff。
-- `CURRENT_STATUS.md`
-  - 当前系统进展、论文最终口径、已知局限。
-- `workspace/default/`
-  - 当前工作区，只保留论文直接引用的评测结果与精选报告。
+## 知识库数据概况
 
-## 当前系统状态
+| 数据类型 | 来源 | 规模 |
+|---------|------|------|
+| 学术论文 PDF | 手工筛选入库 | 54 篇主论文 + 16 份补充材料，共 2934 个向量点 |
+| 性状特异性基因数据 | 人工整理（硬度/颜色/酸度/采收期/糖度各一份） | 5 个精选 CSV |
+| GDR QTL/GWAS 原始数据 | Genome Database for Rosaceae | 含候选基因、染色体坐标、参考基因组信息 |
+| GDR 精选层 | 在 GDR 原始数据基础上人工清洗 | 解析候选基因字段、统一 display_title |
+| 通用基因知识库 | 基线兜底层 | 42 MB CSV，覆盖全性状 |
 
-- 系统已经具备论文 PDF 检索、gene/QTL/GWAS 检索、trait-specific 路由、证据型回答输出和自动评测能力。
-- 当前最终论文库为 `50` 组论文条目、`70` 个 PDF，其中主论文 `54` 个、补充材料 `16` 个。
-- `papers` collection 当前为 `2934` 个向量点。
-- 当前论文采用的最终评测口径为 `28` 题消融实验；完整系统 `A3 Hybrid` 综合得分 `7.07/10`，引用率 `100%`，证据分层率 `86%`。
+Qdrant 共维护 **18 个向量集合**，按性状和数据来源分层组织。
 
-详细状态见：
+---
 
-- `CURRENT_STATUS.md`
-- `thesis/README.md`
-- `workspace/README.md`
+## 评测结果
 
-## 快速开始
+基于 **28 题消融实验**（LLM-as-Judge 自动评分），对比四种配置：
+
+| 配置 | 基因召回率 | 引用率 | 证据分层率 | 综合得分 |
+|------|:---------:|:------:|:---------:|:-------:|
+| A0 无 RAG（纯 LLM） | 58% | 0% | 0% | 4.50 / 10 |
+| A1 仅论文检索 | 59% | 100% | 39% | 4.96 / 10 |
+| A2 仅基因检索 | 83% | 100% | 86% | 7.00 / 10 |
+| **A3 混合检索（完整系统）** | **81%** | **100%** | **86%** | **7.07 / 10** |
+
+各性状得分（A3 完整系统）：颜色 8.2、硬度 7.6、采收期 7.5、酸度 7.0、糖度 6.25。
+
+详细结果见 [`workspace/default/evaluation/ablation/`](workspace/default/evaluation/ablation/)。
+
+---
+
+## 快速启动
+
+### 前置条件
+
+- Docker 和 Docker Compose
+- DeepSeek API Key（或其他兼容 OpenAI 协议的 LLM 服务 API Key）
+
+### 启动步骤
 
 ```bash
-cd /Users/shuaige/code/apple-breeding-rag
+git clone <repo-url>
+cd apple-breeding-rag
+
+# 配置环境变量
 cp backend/.env.example backend/.env
-python3 scripts/pipeline/init_pipeline_workspace.py
+# 编辑 backend/.env，填入 LLM_API_KEY 和 LLM_BASE_URL
+
+# 启动所有服务（Qdrant + 后端 + 前端）
 docker compose up -d --build
 ```
 
-服务地址：
+首次启动时，后端会自动将 `backend/data/` 下的 PDF 和 CSV 文件入库到 Qdrant，无需手动操作。
 
-- Web：[http://localhost:3000](http://localhost:3000)
-- API Docs：[http://localhost:8000/docs](http://localhost:8000/docs)
-- Qdrant Dashboard：[http://localhost:6333/dashboard](http://localhost:6333/dashboard)
+### 访问入口
 
-## 常用脚本入口
+| 服务 | 地址 |
+|------|------|
+| Web 问答界面 | http://localhost:3000 |
+| API 文档（Swagger） | http://localhost:8000/docs |
+| Qdrant 向量库控制台 | http://localhost:6333/dashboard |
 
-工作区与论文集处理：
+---
 
-- `python3 scripts/pipeline/init_pipeline_workspace.py`
-- `python3 scripts/pipeline/fetch_papers.py`
-- `python3 scripts/pipeline/rank_fetched_papers.py`
-- `python3 scripts/pipeline/build_ingest_manifest.py`
-- `python3 scripts/pipeline/stage_ingest_files.py`
+## 使用方式
 
-结构化 gene 数据：
+### Web 界面
 
-- `python3 scripts/data_prep/convert_gene_candidates_to_csv.py`
-- `python3 scripts/data_prep/convert_gdr_to_genes.py`
-- `python3 scripts/data_prep/build_gdr_curated_layer.py`
+1. 打开 [http://localhost:3000](http://localhost:3000)
+2. 点击右上角设置，填入 LLM API Key（和 Base URL，默认指向 DeepSeek）
+3. 在输入框提问，例如：
+   - "苹果果实硬度相关的 QTL 位点有哪些？"
+   - "MdMYB1 在苹果花青素合成中的调控机制是什么？"
+   - "MA 基因座与苹果酸度的关系如何？"
+4. 系统自动检索并返回带引用编号的回答，来源文献/基因条目显示在回答下方
 
-评测与审计：
+### API 直接调用
 
-- `python3 scripts/evaluation/run_evaluation.py`
-- `python3 scripts/evaluation/run_ablation.py`
-- `python3 scripts/evaluation/audit_qtl_reference_systems.py`
+```bash
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "苹果果实硬度相关基因有哪些？",
+    "route": "hybrid",
+    "top_k": 6,
+    "llm_api_key": "your-api-key"
+  }'
+```
 
-论文辅助：
+返回示例：
+```json
+{
+  "answer": "苹果果实硬度受多个基因调控... [1][2]",
+  "route_used": "hybrid",
+  "sources": [
+    {"title": "...", "type": "paper", "score": 0.85},
+    {"title": "MdPG1 — polygalacturonase", "type": "gene", "score": 0.79}
+  ]
+}
+```
 
-- `python3 scripts/thesis/normalize_nwsuaf_thesis_format.py thesis/实验进行中-gpt修改版本.docx`
+---
 
-## 运行数据与工作区
+## 项目结构
 
-- `backend/data/`
-  - 后端运行时数据入口，只放准备参与在线检索和向量化的数据。
-- `workspace/default/evaluation/ablation/`
-  - 当前论文采用的 28 题消融实验结果、表 5-1 来源和按题型汇总。
-- `workspace/default/reports/`
-  - 当前仍需要直接查看的精选报告。
+```
+apple-breeding-rag/
+├── backend/
+│   ├── app/
+│   │   ├── main.py       # FastAPI 服务入口，40+ 接口
+│   │   ├── rag.py        # RAG 检索、路由、证据分层逻辑
+│   │   ├── ingest.py     # PDF/CSV 向量化入库
+│   │   └── settings.py   # 环境配置（Qdrant、LLM、集合名）
+│   ├── data/
+│   │   ├── papers/       # 70 个 PDF 文件
+│   │   └── genes/        # 18 个 CSV 基因数据文件
+│   ├── .env.example      # 环境变量模板
+│   └── Dockerfile
+├── frontend/
+│   └── app/
+│       └── page.js       # 主问答界面（React）
+├── scripts/
+│   ├── pipeline/         # 论文采集与入库流水线
+│   ├── data_prep/        # 基因数据清洗与转换
+│   └── evaluation/       # 评测与消融实验脚本
+├── workspace/default/
+│   └── evaluation/ablation/   # 论文引用的最终评测结果（只读）
+├── thesis/               # 毕业论文文件
+└── docker-compose.yml    # 三服务编排（Qdrant + Backend + Frontend）
+```
 
-## 保留原则
+---
 
-- 正在使用的论文文件放到 `thesis/`。
-- `workspace/` 只保留论文当前仍直接引用的评测结果和报告。
-- 运行时代码和当前论文无关的历史产物不再保留在仓库中。
+## 技术栈
 
-## 推荐阅读顺序
+| 层次 | 技术 |
+|------|------|
+| 后端框架 | Python / FastAPI / Uvicorn |
+| 向量数据库 | Qdrant v1.15 |
+| 语义编码 | fastembed（all-MiniLM-L6-v2） |
+| LLM 接口 | DeepSeek（兼容 OpenAI SDK，可替换） |
+| 前端 | Next.js 14 / React 18 |
+| 容器化 | Docker Compose |
 
-1. `CURRENT_STATUS.md`
-2. `thesis/README.md`
-3. `workspace/default/evaluation/ablation/run_notes.md`
-4. `workspace/default/evaluation/ablation/ablation_table.md`
-5. `workspace/default/evaluation/ablation/trait_detail_table.md`
+---
+
+## 环境变量说明
+
+编辑 `backend/.env`（参考 `backend/.env.example`）：
+
+```env
+QDRANT_URL=http://qdrant:6333
+LLM_API_KEY=your-api-key-here
+LLM_BASE_URL=https://api.deepseek.com    # 可替换为其他 OpenAI 兼容地址
+LLM_MODEL=deepseek-chat
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+AUTO_INGEST=true                          # 启动时自动入库
+```
