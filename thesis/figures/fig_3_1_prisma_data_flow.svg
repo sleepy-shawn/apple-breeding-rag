@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1400" viewBox="0 0 900 1400">
+  <defs>
+    <style>
+      .title { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-size: 20px; fill: #222; }
+      .boxtext { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-size: 24px; fill: #222; font-weight: 500; }
+      .small { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-size: 15px; fill: #6b6b6b; }
+      .tiny { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif; font-size: 13px; fill: #808080; }
+      .box { fill: #ffffff; stroke: #4d4d4d; stroke-width: 1.5; rx: 12; ry: 12; }
+      .finalbox { fill: #f7f4df; stroke: #4d4d4d; stroke-width: 1.8; rx: 12; ry: 12; }
+      .arrow { stroke: #555; stroke-width: 1.6; fill: none; }
+      .merge { stroke: #555; stroke-width: 1.4; fill: none; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <polygon points="0 0, 6 3, 0 6" fill="#555"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="900" height="1400" fill="#fcfcfc"/>
+
+  <!-- Top source boxes -->
+  <rect class="box" x="110" y="90" width="250" height="90"/>
+  <text class="boxtext" x="235" y="145" text-anchor="middle">PubMed 检索</text>
+  <text class="small" x="235" y="170" text-anchor="middle">（关键词组合）</text>
+
+  <rect class="box" x="540" y="90" width="250" height="90"/>
+  <text class="boxtext" x="665" y="145" text-anchor="middle">Semantic Scholar 检索</text>
+  <text class="small" x="665" y="170" text-anchor="middle">（关键词组合）</text>
+
+  <!-- Merge arrows -->
+  <line class="merge" x1="235" y1="180" x2="235" y2="230" marker-end="url(#arrowhead)"/>
+  <line class="merge" x1="665" y1="180" x2="665" y2="230" marker-end="url(#arrowhead)"/>
+  <line class="merge" x1="235" y1="245" x2="665" y2="245"/>
+  <line class="merge" x1="450" y1="245" x2="450" y2="285" marker-end="url(#arrowhead)"/>
+
+  <!-- N1 -->
+  <rect class="box" x="225" y="290" width="450" height="92"/>
+  <text class="boxtext" x="450" y="345" text-anchor="middle">初步命中文献 N₁ ≥ 98 篇</text>
+
+  <text class="small" x="705" y="315">
+    <tspan x="705" dy="0">关键词组合：</tspan>
+    <tspan x="705" dy="22">apple AND (firmness OR color OR</tspan>
+    <tspan x="705" dy="22">acidity OR harvest OR sugar)</tspan>
+    <tspan x="705" dy="22">AND (QTL OR GWAS OR</tspan>
+    <tspan x="705" dy="22">candidate gene OR SNP)</tspan>
+  </text>
+
+  <!-- Arrow to N2 -->
+  <line class="arrow" x1="450" y1="382" x2="450" y2="470" marker-end="url(#arrowhead)"/>
+  <text class="small" x="565" y="418">
+    <tspan x="565" dy="0">负向过滤：</tspan>
+    <tspan x="565" dy="22">排除采后贮藏、果汁加工、</tspan>
+    <tspan x="565" dy="22">食用涂层等非育种主题文献</tspan>
+  </text>
+
+  <!-- N2 -->
+  <rect class="box" x="225" y="470" width="450" height="92"/>
+  <text class="boxtext" x="450" y="525" text-anchor="middle">通过主题相关性筛选 N₂ = 98 篇</text>
+
+  <!-- Arrow to N3 -->
+  <line class="arrow" x1="450" y1="562" x2="450" y2="650" marker-end="url(#arrowhead)"/>
+  <text class="small" x="565" y="596">
+    <tspan x="565" dy="0">全文可获取性筛选：</tspan>
+    <tspan x="565" dy="22">开放获取全文 PDF 优先；</tspan>
+    <tspan x="565" dy="22">不可及时以摘要文本入库</tspan>
+  </text>
+
+  <!-- N3 -->
+  <rect class="box" x="225" y="650" width="450" height="108"/>
+  <text class="boxtext" x="450" y="697" text-anchor="middle">全文/摘要可入库 N₃ = 98 篇</text>
+  <text class="small" x="450" y="730" text-anchor="middle">其中全文 PDF 17 篇，摘要入库 81 篇</text>
+
+  <!-- Arrow to final -->
+  <line class="arrow" x1="450" y1="758" x2="450" y2="860" marker-end="url(#arrowhead)"/>
+  <text class="small" x="565" y="795">
+    <tspan x="565" dy="0">人工复核与去重：</tspan>
+    <tspan x="565" dy="22">剔除重复文献、明显噪声文献</tspan>
+  </text>
+
+  <!-- Final -->
+  <rect class="finalbox" x="180" y="860" width="540" height="130"/>
+  <text class="boxtext" x="450" y="915" text-anchor="middle">最终入库：50 组正式条目，共 70 个 PDF</text>
+  <text class="boxtext" x="450" y="952" text-anchor="middle">（含主论文 + 补充材料）</text>
+
+  <!-- Caption -->
+  <text class="title" x="450" y="1080" text-anchor="middle">图 3-1 论文数据获取与筛选流程</text>
+
+  <!-- Footnote -->
+  <text class="tiny" x="450" y="1115" text-anchor="middle">注：N₁ 采用历史记录可确认的下界表示；N₂/N₃ 基于已保留候选文献记录统计。</text>
+</svg>
