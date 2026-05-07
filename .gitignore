@@ -126,7 +126,4 @@ workspace/default/**
 # Local thesis and archive materials
 archive/history/**
 archive/school-materials/**
-thesis/*.docx
-thesis/*.pdf
-thesis/*.xlsx
-thesis/*.zip
+thesis/
