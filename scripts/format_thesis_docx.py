@@ -12,7 +12,7 @@ from docx.shared import Cm, Pt
 from docx.text.paragraph import Paragraph
 
 
-ROOT = Path("/Users/shuaige/code/apple-breeding-rag")
+ROOT = Path(__file__).resolve().parent.parent
 THESIS_PATH = ROOT / "thesis" / "实验进行中-gpt修改版本.docx"
 BACKUP_PATH = ROOT / "thesis" / "实验进行中-gpt修改版本.before-template-format-backup.docx"
 

@@ -9,10 +9,10 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 
-ROOT = Path("/Users/shuaige/code/apple-breeding-rag")
-THESIS = ROOT / "thesis" / "葛帅毕业论文.docx"
-TEMPLATE = ROOT / "thesis" / "附件1.西北农林科技大学本科毕业论文（设计）模板.docx"
-OUTPUT = ROOT / "thesis" / "葛帅毕业论文_附件1格式定稿.docx"
+ROOT = Path(__file__).resolve().parent.parent
+THESIS = ROOT / "thesis" / "thesis.docx"
+TEMPLATE = ROOT / "thesis" / "template.docx"
+OUTPUT = ROOT / "thesis" / "thesis_formatted.docx"
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"

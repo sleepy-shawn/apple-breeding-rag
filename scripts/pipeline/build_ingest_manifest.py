@@ -5,8 +5,8 @@ Outputs one CSV with per-paper ingest readiness and candidate files.
 
 Usage:
   python scripts/pipeline/build_ingest_manifest.py \
-    --papers-root "/Users/shuaige/code/rag原数据/papers" \
-    --output "/Users/shuaige/code/rag原数据/ingest_manifest.csv"
+    --papers-root "<path-to>/papers" \
+    --output "<path-to>/ingest_manifest.csv"
 """
 
 from __future__ import annotations

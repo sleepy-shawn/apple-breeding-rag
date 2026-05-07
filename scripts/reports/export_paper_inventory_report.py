@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 
 
-ROOT = Path("/Users/shuaige/code/apple-breeding-rag")
+ROOT = Path(__file__).resolve().parent.parent.parent
 BACKEND_PAPERS = ROOT / "backend/data/papers"
 SOURCE_PAPERS = ROOT / "workspace/default/source/papers"
 REPORTS = ROOT / "workspace/default/reports"

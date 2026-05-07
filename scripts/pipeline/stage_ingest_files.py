@@ -7,10 +7,10 @@
 
 Usage:
   python scripts/pipeline/stage_ingest_files.py \
-    --manifest "/Users/shuaige/code/rag原数据/ingest_manifest.csv" \
-    --papers-out "/Users/shuaige/code/apple-breeding-rag/backend/data/papers" \
-    --genes-out "/Users/shuaige/code/apple-breeding-rag/backend/data/genes/raw_candidates" \
-    --report "/Users/shuaige/code/apple-breeding-rag/backend/data/staged_manifest.csv"
+    --manifest "<path-to>/ingest_manifest.csv" \
+    --papers-out "backend/data/papers" \
+    --genes-out "backend/data/genes/raw_candidates" \
+    --report "backend/data/staged_manifest.csv"
 """
 
 from __future__ import annotations

@@ -181,7 +181,6 @@ apple-breeding-rag/
 │   └── evaluation/       # 评测与消融实验脚本
 ├── workspace/default/
 │   └── evaluation/ablation/   # 论文引用的最终评测结果
-├── thesis/                    # 毕业论文（终极版.docx）
 ├── docker-compose.yml         # 三服务编排
 ├── CURRENT_STATUS.md          # 项目当前状态快照
 └── README.md
@@ -226,17 +225,7 @@ AUTO_INGEST=true                          # 启动时自动入库
 
 ---
 
-## 文档与论文
+## 文档
 
 - 项目状态快照：[`CURRENT_STATUS.md`](CURRENT_STATUS.md)
-- 毕业论文（终极版）：[`thesis/葛帅论文终极版.docx`](thesis/葛帅论文终极版.docx)
 - 评测结果：[`workspace/default/evaluation/ablation/`](workspace/default/evaluation/ablation/)
-
----
-
-## 引用
-
-```
-葛帅. 基于 RAG 方法的苹果育种专业知识问答系统及 Web 实现[D].
-杨凌: 西北农林科技大学, 2026.
-```

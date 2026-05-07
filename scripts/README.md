@@ -29,7 +29,7 @@
 - `python3 scripts/pipeline/rank_fetched_papers.py`
 - `python3 scripts/evaluation/run_evaluation.py`
 - `python3 scripts/reports/export_paper_inventory_report.py`
-- `python3 scripts/thesis/normalize_nwsuaf_thesis_format.py thesis/葛帅毕业论文_格式修订版.docx`
+- `python3 scripts/thesis/normalize_nwsuaf_thesis_format.py thesis/<your-thesis>.docx`
 
 ## 使用原则
 

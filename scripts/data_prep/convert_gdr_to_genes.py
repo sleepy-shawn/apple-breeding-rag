@@ -215,7 +215,7 @@ def convert(input_path: Path, output_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert GDR CSV to apple breeding gene format")
-    parser.add_argument("--input", default="/Users/shuaige/Downloads/tripal_megasearch_download.csv")
+    parser.add_argument("--input", required=True, help="Path to GDR tripal_megasearch_download.csv")
     parser.add_argument("--output-dir", default="backend/data/genes")
     args = parser.parse_args()
     convert(Path(args.input), Path(args.output_dir))
