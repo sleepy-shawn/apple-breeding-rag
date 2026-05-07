@@ -3,6 +3,36 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+TRAITS = ("firmness", "color", "acidity", "harvest", "sugar")
+COLLECTION_TIERS = ("curated", "gdr", "gdr_curated")
+
+
+def _build_collection_registry() -> dict[str, str]:
+    registry: dict[str, str] = {
+        "papers": "papers",
+        "genes": "genes",
+    }
+    for trait in TRAITS:
+        registry[f"genes_{trait}"] = f"genes_{trait}"
+    registry["genes_gdr"] = "genes_gdr"
+    registry["genes_gdr_curated"] = "genes_gdr_curated"
+    for trait in TRAITS:
+        registry[f"genes_gdr_{trait}"] = f"genes_gdr_{trait}"
+        registry[f"genes_gdr_curated_{trait}"] = f"genes_gdr_curated_{trait}"
+    return registry
+
+
+COLLECTION_REGISTRY: dict[str, str] = _build_collection_registry()
+
+DEFAULT_INGEST_FILENAMES: dict[str, str] = {
+    "genes": "genes.csv",
+    **{f"genes_{t}": f"genes_{t}_curated.csv" for t in TRAITS},
+    "genes_gdr": "genes_gdr.csv",
+    "genes_gdr_curated": "genes_gdr_curated.csv",
+    **{f"genes_gdr_{t}": f"genes_gdr_{t}.csv" for t in TRAITS},
+    **{f"genes_gdr_curated_{t}": f"genes_gdr_curated_{t}.csv" for t in TRAITS},
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -11,95 +41,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api"
 
     qdrant_url: str = Field(default="http://qdrant:6333", alias="QDRANT_URL")
-    qdrant_papers_collection: str = "papers"
-    qdrant_genes_collection: str = "genes"
-    qdrant_genes_firmness_collection: str = "genes_firmness"
-    qdrant_genes_color_collection: str = "genes_color"
-    qdrant_genes_acidity_collection: str = "genes_acidity"
-    qdrant_genes_harvest_collection: str = "genes_harvest"
-    qdrant_genes_sugar_collection: str = "genes_sugar"
-    qdrant_genes_gdr_collection: str = "genes_gdr"
-    qdrant_genes_gdr_curated_collection: str = "genes_gdr_curated"
-    qdrant_genes_gdr_firmness_collection: str = "genes_gdr_firmness"
-    qdrant_genes_gdr_color_collection: str = "genes_gdr_color"
-    qdrant_genes_gdr_acidity_collection: str = "genes_gdr_acidity"
-    qdrant_genes_gdr_harvest_collection: str = "genes_gdr_harvest"
-    qdrant_genes_gdr_sugar_collection: str = "genes_gdr_sugar"
-    qdrant_genes_gdr_curated_firmness_collection: str = "genes_gdr_curated_firmness"
-    qdrant_genes_gdr_curated_color_collection: str = "genes_gdr_curated_color"
-    qdrant_genes_gdr_curated_acidity_collection: str = "genes_gdr_curated_acidity"
-    qdrant_genes_gdr_curated_harvest_collection: str = "genes_gdr_curated_harvest"
-    qdrant_genes_gdr_curated_sugar_collection: str = "genes_gdr_curated_sugar"
     auto_ingest_on_startup: bool = Field(default=True, alias="AUTO_INGEST_ON_STARTUP")
-    auto_ingest_genes_filename: str = Field(default="genes.csv", alias="AUTO_INGEST_GENES_FILENAME")
-    auto_ingest_genes_firmness_filename: str = Field(
-        default="genes_firmness_curated.csv",
-        alias="AUTO_INGEST_GENES_FIRMNESS_FILENAME",
-    )
-    auto_ingest_genes_color_filename: str = Field(
-        default="genes_color_curated.csv",
-        alias="AUTO_INGEST_GENES_COLOR_FILENAME",
-    )
-    auto_ingest_genes_acidity_filename: str = Field(
-        default="genes_acidity_curated.csv",
-        alias="AUTO_INGEST_GENES_ACIDITY_FILENAME",
-    )
-    auto_ingest_genes_harvest_filename: str = Field(
-        default="genes_harvest_curated.csv",
-        alias="AUTO_INGEST_GENES_HARVEST_FILENAME",
-    )
-    auto_ingest_genes_sugar_filename: str = Field(
-        default="genes_sugar_curated.csv",
-        alias="AUTO_INGEST_GENES_SUGAR_FILENAME",
-    )
-    auto_ingest_genes_gdr_filename: str = Field(
-        default="genes_gdr.csv",
-        alias="AUTO_INGEST_GENES_GDR_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_filename: str = Field(
-        default="genes_gdr_curated.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_FILENAME",
-    )
-    auto_ingest_genes_gdr_firmness_filename: str = Field(
-        default="genes_gdr_firmness.csv",
-        alias="AUTO_INGEST_GENES_GDR_FIRMNESS_FILENAME",
-    )
-    auto_ingest_genes_gdr_color_filename: str = Field(
-        default="genes_gdr_color.csv",
-        alias="AUTO_INGEST_GENES_GDR_COLOR_FILENAME",
-    )
-    auto_ingest_genes_gdr_acidity_filename: str = Field(
-        default="genes_gdr_acidity.csv",
-        alias="AUTO_INGEST_GENES_GDR_ACIDITY_FILENAME",
-    )
-    auto_ingest_genes_gdr_harvest_filename: str = Field(
-        default="genes_gdr_harvest.csv",
-        alias="AUTO_INGEST_GENES_GDR_HARVEST_FILENAME",
-    )
-    auto_ingest_genes_gdr_sugar_filename: str = Field(
-        default="genes_gdr_sugar.csv",
-        alias="AUTO_INGEST_GENES_GDR_SUGAR_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_firmness_filename: str = Field(
-        default="genes_gdr_curated_firmness.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_FIRMNESS_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_color_filename: str = Field(
-        default="genes_gdr_curated_color.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_COLOR_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_acidity_filename: str = Field(
-        default="genes_gdr_curated_acidity.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_ACIDITY_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_harvest_filename: str = Field(
-        default="genes_gdr_curated_harvest.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_HARVEST_FILENAME",
-    )
-    auto_ingest_genes_gdr_curated_sugar_filename: str = Field(
-        default="genes_gdr_curated_sugar.csv",
-        alias="AUTO_INGEST_GENES_GDR_CURATED_SUGAR_FILENAME",
-    )
 
     embedding_model: str = Field(
         default="sentence-transformers/all-MiniLM-L6-v2",
@@ -109,6 +51,28 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
     llm_base_url: str = Field(default="https://api.deepseek.com", alias="LLM_BASE_URL")
     llm_model: str = Field(default="deepseek-chat", alias="LLM_MODEL")
+
+    def collection_name(self, key: str) -> str:
+        if key not in COLLECTION_REGISTRY:
+            raise ValueError(f"Unknown collection key: {key}")
+        return COLLECTION_REGISTRY[key]
+
+    def ingest_filename(self, key: str) -> str:
+        return DEFAULT_INGEST_FILENAMES.get(key, f"{key}.csv")
+
+    def trait_collections(self, trait: str | None) -> list[str]:
+        if trait and trait in TRAITS:
+            return [
+                self.collection_name(f"genes_{trait}"),
+                self.collection_name(f"genes_gdr_curated_{trait}"),
+                self.collection_name("genes_gdr_curated"),
+                self.collection_name(f"genes_gdr_{trait}"),
+                self.collection_name("genes_gdr"),
+            ]
+        return [
+            self.collection_name("genes_gdr_curated"),
+            self.collection_name("genes_gdr"),
+        ]
 
 
 @lru_cache

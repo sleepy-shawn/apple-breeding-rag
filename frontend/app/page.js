@@ -1,0 +1,1084 @@
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import styles from './page.module.css'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
+const INITIAL_CHAT = mkChat()
+const LLM_STORAGE_KEY = 'apple-breeding-rag-llm-config'
+const CHATS_STORAGE_KEY = 'apple-breeding-rag-chats'
+const GENE_TARGETS = [
+  { value: 'genes', label: '通用 genes' },
+  { value: 'genes_firmness', label: '硬度 genes_firmness' },
+  { value: 'genes_color', label: '颜色 genes_color' },
+  { value: 'genes_acidity', label: '酸度 genes_acidity' },
+  { value: 'genes_harvest', label: '采收期 genes_harvest' },
+  { value: 'genes_sugar', label: '糖度 genes_sugar' }
+]
+const QUICK_PROMPTS = [
+  'Ma1基因位点对苹果果实酸度有何影响？',
+  'MdMYB10启动子中的R6重复序列对苹果花青素积累有何影响？',
+  'MdNAC18基因启动子区域的InDel变体如何影响苹果果肉硬度和成熟时间？',
+  '苹果育种中GWAS与QTL作图相比有什么优势？'
+]
+function mkChat() {
+  return {
+    id: String(Date.now() + Math.random()),
+    title: '新对话',
+    messages: [],
+    createdAt: new Date().toISOString()
+  }
+}
+
+function trimTitle(text) {
+  const t = (text || '').trim()
+  if (!t) return '新对话'
+  return t.length > 24 ? `${t.slice(0, 24)}...` : t
+}
+
+function geneTargetDisplay(value) {
+  const target = GENE_TARGETS.find((item) => item.value === value)
+  const label = target?.label?.split(' ')[0] || '通用'
+  return `${label}基因库`
+}
+
+const SOURCE_LABELS = {
+  literature_curated: '人工整理文献库'
+}
+
+const SHEET_LABELS = {
+  firmness_texture_genes: '硬度与质地基因表',
+  color_genes: '果皮颜色基因表',
+  acidity_genes: '酸度基因表',
+  sugar_genes: '糖度基因表',
+  harvest_genes: '采收期基因表'
+}
+
+const TRAIT_LABELS = {
+  firmness: '硬度',
+  color: '颜色',
+  acidity: '酸度',
+  sugar: '糖度',
+  harvest: '采收期',
+  texture: '质地',
+  ripening: '成熟',
+  softening: '软化',
+  crispness: '脆度'
+}
+
+const EVIDENCE_REPLACEMENTS = [
+  // ===== 长语义短语（最长优先） =====
+  ['core apple firmness, ripening, and harvest-date regulator', '苹果硬度、成熟和采收期调控的核心候选基因'],
+  ['ripening-time GWAS/QTL evidence', '成熟期 GWAS/QTL 证据'],
+  ['Honeycrisp-like delayed softening interpretation', 'Honeycrisp 式延迟软化解释'],
+  ['Apple ripening and texture GWAS', '苹果成熟与质地 GWAS'],
+  ['GWAS/QTL evidence', 'GWAS/QTL 证据'],
+
+  // ===== 复合"生物学+动词"短语（必须先于通用连接词，否则会被通用规则吃掉） =====
+  ['Expansin proteins contribute to', 'Expansin 蛋白参与'],
+  ['expansin proteins contribute to', 'expansin 蛋白参与'],
+  ['expansin gene contributing to', 'expansin 基因参与'],
+  ['transcription factors activate or modulate', '转录因子激活或调控'],
+  ['transcription factors contribute to variation in', '转录因子参与影响'],
+  ['transcription factors contribute to', '转录因子参与'],
+  ['gene contributing to', '基因参与'],
+  ['gene supports', '基因支持'],
+
+  // ===== 结构/连接词组（先于短词） =====
+  ['is used as a normalized gene-family label for', '作为以下范围的归一化基因家族标签：'],
+  ['a normalized gene-family label for', '归一化基因家族标签，用于'],
+  ['normalized gene-family label', '归一化基因家族标签'],
+  ['curated synonym/normalization entry', '人工整理的同义词/归一化条目'],
+  ['curated synonym', '人工整理的同义词'],
+  ['normalization entry', '归一化条目'],
+  ['when the question asks for', '；适用于问题询问'],
+  ['when the question asks about', '；适用于问题询问'],
+  ['-style questions that ask about', '式相关问题，涉及'],
+  ['-style questions', '式相关问题'],
+  ['questions that ask about', '相关问题，涉及'],
+  ['questions that ask', '相关问题'],
+  ['the question asks for', '问题询问'],
+  ['the question asks about', '问题询问'],
+  ['asks about', '询问'],
+  ['asks for', '询问'],
+  ['ask about', '关于'],
+  ['rather than the specific', '而非特定的'],
+  ['rather than', '而非'],
+  ['such as', '如'],
+  ['through activation of', '通过激活'],
+  ['indirectly reducing', '间接降低'],
+  ['can affect', '可影响'],
+  ['can modulate', '可调控'],
+  ['activate or modulate', '激活或调控'],
+  ['contributes to variation in', '参与影响'],
+  ['contributing to', '参与'],
+  ['contributes to', '参与'],
+  ['contribute to', '参与'],
+  ['is associated with', '与之相关：'],
+  ['associated with', '，关联'],
+  ['is linked with', '与之相关联：'],
+  ['linked with', '相关联'],
+  ['during fruit softening', '在果实软化过程中'],
+  ['during fruit', '在果实'],
+  ['during', '在'],
+  ['in apple fruit', '于苹果果实'],
+  ['in apple', '于苹果'],
+  ['at harvest', '（采收时）'],
+  ['a key rate-limiting enzyme for', '关键限速酶，参与'],
+  ['rate-limiting enzyme for', '限速酶，参与'],
+  ['key rate-limiting enzyme', '关键限速酶'],
+  ['-style', '式'],
+
+  // ===== 生物学短语 =====
+  ['ACC synthase', 'ACC 合成酶'],
+  ['rate-limiting enzyme', '限速酶'],
+  ['climacteric ethylene', '跃变型乙烯'],
+  ['climacteric', '跃变型'],
+  ['harvest maturity', '采收成熟度'],
+  ['polygalacturonase', '多聚半乳糖醛酸酶'],
+  ['NAC transcription factor', 'NAC 转录因子'],
+  ['ethylene-response factor', '乙烯响应因子'],
+  ['ethylene response factor', '乙烯响应因子'],
+  ['ethylene-response', '乙烯响应'],
+  ['ethylene response', '乙烯响应'],
+  ['ethylene-pathway gene', '乙烯通路基因'],
+  ['ethylene pathway gene', '乙烯通路基因'],
+  ['ethylene-pathway', '乙烯通路'],
+  ['ethylene pathway', '乙烯通路'],
+  ['response factor', '响应因子'],
+  ['transcription-factor', '转录因子'],
+  ['transcription factors', '转录因子'],
+  ['transcription factor', '转录因子'],
+  ['candidate transcription factor', '候选转录因子'],
+  ['Expansin proteins contribute to', 'Expansin 蛋白参与'],
+  ['expansin proteins', 'expansin 蛋白'],
+  ['expansin gene', 'expansin 基因'],
+  ['fruit softening', '果实软化'],
+  ['fruit ripening', '果实成熟'],
+  ['fruit texture', '果实质地'],
+  ['ripening differences', '成熟差异'],
+  ['softening differences', '软化差异'],
+  ['firmness differences', '硬度差异'],
+  ['texture differences', '质地差异'],
+  ['ripening divergence', '成熟差异'],
+  ['ripening mechanism', '成熟机制'],
+  ['ripening onset', '成熟启动'],
+  ['softening interpretation', '软化解释'],
+  ['firmness retention', '硬度保持'],
+  ['texture retention', '质地保持'],
+  ['retainability', '保持性'],
+
+  // ===== 已有的多词术语 =====
+  ['apple fruit firmness', '苹果果实硬度'],
+  ['apple flesh firmness', '苹果果肉硬度'],
+  ['flesh firmness', '果肉硬度'],
+  ['fruit firmness', '果实硬度'],
+  ['firmness after storage', '贮藏后硬度'],
+  ['postharvest softening', '采后软化'],
+  ['postharvest firmness', '采后硬度'],
+  ['postharvest', '采后'],
+  ['delayed softening', '延迟软化'],
+  ['ripening-time', '成熟期'],
+  ['harvest-date', '采收期'],
+  ['harvest date', '采收期'],
+  ['cell-wall softening programs', '细胞壁软化过程'],
+  ['cell-wall degradation pathways', '细胞壁降解通路'],
+  ['cell-wall degradation genes', '细胞壁降解基因'],
+  ['cell-wall degradation gene', '细胞壁降解基因'],
+  ['cell-wall degradation', '细胞壁降解'],
+  ['cell-wall disassembly gene', '细胞壁解体相关基因'],
+  ['cell-wall loosening', '细胞壁松弛'],
+  ['cell-wall', '细胞壁'],
+  ['cell wall', '细胞壁'],
+  ['ethylene biosynthesis', '乙烯生物合成'],
+  ['ethylene production', '乙烯生成'],
+  ['ethylene biology', '乙烯生物学'],
+  ['anthocyanin biosynthesis', '花青素生物合成'],
+  ['anthocyanin accumulation', '花青素积累'],
+  ['red skin coloration', '果皮红色着色'],
+  ['red skin color', '红色果皮'],
+  ['skin color', '果皮颜色'],
+  ['malic acid content', '苹果酸含量'],
+  ['titratable acidity', '可滴定酸'],
+  ['vacuolar acidification', '液泡酸化'],
+  ['malate accumulation', '苹果酸积累'],
+  ['candidate-gene support', '候选基因支持'],
+  ['candidate gene support', '候选基因支持'],
+  ['allelic-variation support', '等位变异支持'],
+  ['allelic variation support', '等位变异支持'],
+  ['QTL/candidate-gene', 'QTL/候选基因'],
+  ['QTL/candidate gene', 'QTL/候选基因'],
+  ['candidate-gene', '候选基因'],
+  ['candidate gene', '候选基因'],
+  ['allelic variation', '等位变异'],
+  ['allelic-variation', '等位变异'],
+  ['natural-variation', '自然变异'],
+  ['natural variation', '自然变异'],
+  ['genomics-assisted prediction', '基因组学辅助预测'],
+  ['genomics-assisted', '基因组学辅助'],
+  ['functional characterization', '功能验证'],
+  ['functional analysis', '功能分析'],
+  ['expression analysis', '表达分析'],
+  ['association analysis', '关联分析'],
+  ['promoter analysis', '启动子分析'],
+  ['QTL mapping', 'QTL 作图'],
+  ['QTL-supported', 'QTL 支持的'],
+  ['GWAS/QTL-supported', 'GWAS/QTL 支持的'],
+  ['literature-curated', '文献整理的'],
+  ['texture variation', '质地差异'],
+  ['Multiple apple cultivars', '多个苹果品种'],
+  ['Multiple cultivars', '多个品种'],
+
+  // ===== 单字（启用 \b 词边界，避免误伤复合词） =====
+  ['encodes', '编码'],
+  ['affects', '影响'],
+  ['affect', '影响'],
+  ['activate', '激活'],
+  ['modulate', '调控'],
+  ['reducing', '降低'],
+  ['supporting', '支持'],
+  ['supports', '支持'],
+  ['support', '支持'],
+  ['onset', '启动'],
+  ['production', '生成'],
+  ['differences', '差异'],
+  ['variations', '变异'],
+  ['variation', '变异'],
+  ['regulators', '调控因子'],
+  ['mechanisms', '机制'],
+  ['pathways', '通路'],
+  ['enzymes', '酶'],
+  ['interpretations', '解释'],
+  ['cultivars', '品种'],
+  ['cultivar', '品种'],
+  ['proteins', '蛋白'],
+  ['protein', '蛋白'],
+  ['enzyme', '酶'],
+  ['symbol', '符号'],
+  ['relevant', '相关的'],
+  ['key', '关键'],
+  ['gene-family', '基因家族'],
+  ['genes', '基因'],
+  ['gene', '基因'],
+  ['fruit', '果实'],
+  ['flesh', '果肉'],
+  ['interpretation', '解释'],
+  ['evidence', '证据'],
+  ['apple', '苹果'],
+  ['firmness', '硬度'],
+  ['texture', '质地'],
+  ['ripening', '成熟'],
+  ['softening', '软化'],
+  ['crispness', '脆度'],
+  ['candidate', '候选'],
+  ['mechanism', '机制'],
+  ['pathway', '通路'],
+  ['regulator', '调控因子'],
+  ['locus', '位点'],
+  ['when', '当'],
+  ['in', '于']
+]
+
+function sourceTypeDisplay(value) {
+  return value === 'gene' ? '基因' : value === 'paper' ? '文献' : value || '来源'
+}
+
+function localizeValue(key, value) {
+  if (!value) return ''
+  if (key === 'source_file') return SOURCE_LABELS[value] || value
+  if (key === 'sheet') return SHEET_LABELS[value] || value
+  if (key === 'trait') return TRAIT_LABELS[value] || value
+  if (key === 'variety') return translateEvidencePhrase(value)
+  return value
+}
+
+function translateEvidencePhrase(text) {
+  let output = text || ''
+  EVIDENCE_REPLACEMENTS.forEach(([from, to]) => {
+    // 单词级短语加 \b 词边界（gene 不匹配 genetic）；多词短语以字母结尾且非 s 时允许尾部 s（处理复数）
+    const isWordLike = /^[A-Za-z][A-Za-z-]*[A-Za-z]?$/.test(from)
+    const isMultiWord = /\s/.test(from)
+    const endsInLetterNonS = /[A-Za-rt-z]$/.test(from)
+    const escaped = escapeRegExp(from)
+    let pattern
+    if (isWordLike) {
+      pattern = `\\b${escaped}\\b`
+    } else if (isMultiWord && endsInLetterNonS) {
+      pattern = `${escaped}s?\\b`
+    } else {
+      pattern = escaped
+    }
+    output = output.replace(new RegExp(pattern, 'gi'), to)
+  })
+  return cleanupEvidencePhrase(output)
+}
+
+function cleanupEvidencePhrase(text) {
+  return (text || '')
+    .replace(/,\s*and\s+/gi, '和')
+    .replace(/\s+and\s+/gi, '和')
+    .replace(/,\s*/g, '、')
+    .replace(/\s+/g, ' ')
+    .replace(/([\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])/g, '$1')
+    .replace(/([\u4e00-\u9fff])\s+(?=[，。；、])/g, '$1')
+    .replace(/（\s+/g, '（')
+    .replace(/\s+）/g, '）')
+    .replace(/([一-鿿])\s+(?=[（）「」])/g, '$1')
+    .replace(/把\s+/g, '把')
+    .replace(/\s+与\s+/g, '与')
+    .replace(/\s+联系/g, '联系')
+    .replace(/和(?=[A-Za-z])/g, '和 ')
+    .trim()
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function translateEvidenceText(text) {
+  if (!text) return ''
+  return text
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => translateEvidenceSentence(sentence.trim()))
+    .filter(Boolean)
+    .join('')
+}
+
+// 中文前缀拼接：content 以中文开头则不加空格，否则加一个空格
+function joinCJ(prefix, content) {
+  const c = content || ''
+  if (!c) return prefix
+  return /^[一-鿿]/.test(c) ? `${prefix}${c}` : `${prefix} ${c}`
+}
+
+function translateEvidenceSentence(sentence) {
+  if (!sentence) return ''
+
+  const evidenceType = sentence.match(/^Evidence type:\s*(.+)\.?$/i)
+  if (evidenceType) return `证据类型：${translateEvidencePhrase(evidenceType[1]).replace(/\.$/, '')}。`
+
+  const trait = sentence.match(/^Trait:\s*(.+)\.?$/i)
+  if (trait) return `关联性状：${translateEvidencePhrase(trait[1]).replace(/\.$/, '')}。`
+
+  const curated = sentence.match(/^(.+?) is curated as (?:an?|the)?\s*(.+)\.?$/i)
+  if (curated) return `${joinCJ(`${curated[1]} 被整理为`, translateEvidencePhrase(curated[2]).replace(/\.$/, ''))}。`
+
+  const located = sentence.match(/^Located on (chromosome|Chr)(.+),\s*(.+)\.?$/i)
+  if (located) return `位于 Chr${located[2].trim().replace(/^Chr/i, '')}，${translateEvidencePhrase(located[3]).replace(/\.$/, '')}。`
+
+  const regionLinks = sentence.match(/^The (.+?) region links (.+?) with (.+)\.?$/i)
+  if (regionLinks) {
+    return `${regionLinks[1]} 区域把 ${translateEvidencePhrase(regionLinks[2])} 与 ${translateEvidencePhrase(regionLinks[3]).replace(/\.$/, '')} 联系起来。`
+  }
+
+  const supports = sentence.match(/^It supports answers where (.+)\.?$/i)
+  if (supports) return `该证据可支持以下问题场景：${translateEvidencePhrase(supports[1]).replace(/\.$/, '')}。`
+
+  const supportsQuestions = sentence.match(/^It supports (.+)\.?$/i)
+  if (supportsQuestions) return `该证据支持：${translateEvidencePhrase(supportsQuestions[1]).replace(/\.$/, '')}。`
+
+  const association = sentence.match(/^(.+?) is associated with (.+)\.?$/i)
+  if (association) return `${association[1]} 与 ${translateEvidencePhrase(association[2]).replace(/\.$/, '')} 相关。`
+
+  // X encodes Y, a Z（同位语结构：X 编码 Y，即 Z）
+  const encodesAppos = sentence.match(/^(.+?)\s+encodes\s+(.+?),\s+(?:an?|the)\s+(.+)\.?$/i)
+  if (encodesAppos) {
+    return `${encodesAppos[1]} 编码 ${translateEvidencePhrase(encodesAppos[2])}，即${translateEvidencePhrase(encodesAppos[3]).replace(/\.$/, '')}。`
+  }
+
+  // X encodes Y
+  const encodes = sentence.match(/^(.+?)\s+encodes\s+(.+)\.?$/i)
+  if (encodes) return `${encodes[1]} 编码 ${translateEvidencePhrase(encodes[2]).replace(/\.$/, '')}。`
+
+  // X affects Y
+  const affects = sentence.match(/^(.+?)\s+affects\s+(.+)\.?$/i)
+  if (affects) return `${affects[1]} 影响 ${translateEvidencePhrase(affects[2]).replace(/\.$/, '')}。`
+
+  // X is linked with Y
+  const linked = sentence.match(/^(.+?)\s+is linked with\s+(.+)\.?$/i)
+  if (linked) return `${translateEvidencePhrase(linked[1])} 与 ${translateEvidencePhrase(linked[2]).replace(/\.$/, '')} 相关联。`
+
+  // X contributes to Y（X 也走翻译，处理"Expansin proteins"这类需要翻译的主语）
+  const contributes = sentence.match(/^(.+?)\s+contributes? to\s+(.+)\.?$/i)
+  if (contributes) return `${translateEvidencePhrase(contributes[1])} 参与 ${translateEvidencePhrase(contributes[2]).replace(/\.$/, '')}。`
+
+  return `${translateEvidencePhrase(sentence).replace(/\.$/, '')}。`
+}
+
+function parseEvidenceFields(text) {
+  const fields = {}
+  ;(text || '').split(/;\s+(?=[A-Za-z_]+:)/).forEach((part) => {
+    const match = part.match(/^([^:]+):\s*(.*)$/)
+    if (match) fields[match[1].trim()] = match[2].trim()
+  })
+  return fields
+}
+
+function EvidenceCardBody({ source }) {
+  const fields = parseEvidenceFields(source.chunk_text)
+  if (!fields.evidence_text) return <p>{source.chunk_text}</p>
+
+  const provenance = [
+    fields.source_file && `来源：${localizeValue('source_file', fields.source_file)}`,
+    fields.sheet && `表格：${localizeValue('sheet', fields.sheet)}`,
+    fields.row_index && `行号：${fields.row_index}`
+  ].filter(Boolean)
+
+  const facts = [
+    fields.trait && `性状：${localizeValue('trait', fields.trait)}`,
+    fields.gene && `基因：${fields.gene}`,
+    fields.snp && `SNP/位点：${fields.snp}`,
+    fields.chr && `染色体：${fields.chr}`,
+    fields.pos && `位置：${fields.pos}`,
+    fields.pvalue && `P 值：${fields.pvalue}`,
+    fields.variety && `材料/群体：${localizeValue('variety', fields.variety)}`
+  ].filter(Boolean)
+
+  return (
+    <div className={styles.evidenceBody}>
+      {provenance.length > 0 && <p className={styles.evidenceLine}>{provenance.join('；')}</p>}
+      {facts.length > 0 && <p className={styles.evidenceLine}>{facts.join('；')}</p>}
+      <p className={styles.evidenceLine}>证据说明：{translateEvidenceText(fields.evidence_text)}</p>
+    </div>
+  )
+}
+
+// ── Markdown renderer ──────────────────────────────────────────────────────
+function parseInline(text, prefix = '') {
+  const out = []
+  let rem = text
+  let k = 0
+
+  while (rem.length) {
+    // bold **...**
+    const b = rem.match(/\*\*(.+?)\*\*/)
+    // italic *...*
+    const it = rem.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/)
+    // inline code `...`
+    const ic = rem.match(/`([^`]+)`/)
+
+    const candidates = [
+      b && { type: 'b', m: b },
+      it && { type: 'i', m: it },
+      ic && { type: 'c', m: ic }
+    ].filter(Boolean).sort((a, b2) => a.m.index - b2.m.index)
+
+    if (!candidates.length) { out.push(rem); break }
+
+    const { type, m } = candidates[0]
+    if (m.index > 0) out.push(rem.slice(0, m.index))
+    if (type === 'b') out.push(<strong key={`${prefix}b${k++}`}>{m[1]}</strong>)
+    else if (type === 'i') out.push(<em key={`${prefix}i${k++}`}>{m[1]}</em>)
+    else out.push(<code key={`${prefix}c${k++}`} className={styles.mdCode}>{m[1]}</code>)
+    rem = rem.slice(m.index + m[0].length)
+  }
+  return out
+}
+
+function MarkdownBlock({ text }) {
+  const lines = (text || '').split('\n')
+  const els = []
+  let i = 0
+  let k = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // fenced code block
+    if (line.startsWith('```')) {
+      const codeLines = []
+      i++
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i])
+        i++
+      }
+      els.push(<pre key={k++} className={styles.mdPre}><code>{codeLines.join('\n')}</code></pre>)
+      i++
+      continue
+    }
+
+    // headings
+    const hm = line.match(/^(#{1,4})\s+(.+)$/)
+    if (hm) {
+      const lvl = hm[1].length
+      const Tag = ['h2', 'h3', 'h4', 'h5'][lvl - 1] || 'h5'
+      els.push(<Tag key={k++} className={styles[`mdH${lvl}`]}>{parseInline(hm[2], `h${k}`)}</Tag>)
+      i++
+      continue
+    }
+
+    // horizontal rule
+    if (/^[-*_]{3,}$/.test(line.trim())) {
+      els.push(<hr key={k++} className={styles.mdHr} />)
+      i++
+      continue
+    }
+
+    // blockquote
+    if (line.startsWith('>')) {
+      const ql = []
+      while (i < lines.length && lines[i].startsWith('>')) {
+        ql.push(lines[i].replace(/^>\s?/, ''))
+        i++
+      }
+      els.push(
+        <blockquote key={k++} className={styles.mdBlockquote}>
+          {ql.map((l, j) => <p key={j}>{parseInline(l, `bq${j}`)}</p>)}
+        </blockquote>
+      )
+      continue
+    }
+
+    // unordered list
+    if (/^[-*+]\s/.test(line)) {
+      const items = []
+      while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
+        items.push(<li key={i}>{parseInline(lines[i].replace(/^[-*+]\s+/, ''), `ul${i}`)}</li>)
+        i++
+      }
+      els.push(<ul key={k++} className={styles.mdUl}>{items}</ul>)
+      continue
+    }
+
+    // ordered list
+    if (/^\d+\.\s/.test(line)) {
+      const items = []
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        items.push(<li key={i}>{parseInline(lines[i].replace(/^\d+\.\s+/, ''), `ol${i}`)}</li>)
+        i++
+      }
+      els.push(<ol key={k++} className={styles.mdOl}>{items}</ol>)
+      continue
+    }
+
+    // empty line → skip (margin between paragraphs handles spacing)
+    if (!line.trim()) { i++; continue }
+
+    // paragraph
+    els.push(<p key={k++} className={styles.mdP}>{parseInline(line, `p${k}`)}</p>)
+    i++
+  }
+
+  return <div className={styles.markdownContent}>{els}</div>
+}
+// ──────────────────────────────────────────────────────────────────────────
+
+export default function HomePage() {
+  const [question, setQuestion] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [lastQuestion, setLastQuestion] = useState('')
+  const [copiedIdx, setCopiedIdx] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [opMsg, setOpMsg] = useState('')
+  const [opLoading, setOpLoading] = useState('')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [dataToolsOpen, setDataToolsOpen] = useState(false)
+  const [geneTarget, setGeneTarget] = useState('genes')
+  const [llmConfig, setLlmConfig] = useState({
+    apiKey: '',
+    baseUrl: 'https://api.deepseek.com',
+    model: 'deepseek-chat'
+  })
+
+  const [chats, setChats] = useState([INITIAL_CHAT])
+  const [activeChatId, setActiveChatId] = useState(INITIAL_CHAT.id)
+
+  const paperInputRef = useRef(null)
+  const geneInputRef = useRef(null)
+  const threadRef = useRef(null)
+  const textareaRef = useRef(null)
+
+  const activeChat = useMemo(() => chats.find((c) => c.id === activeChatId) || chats[0], [chats, activeChatId])
+  const threadHasMessages = Boolean(activeChat?.messages.length)
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(LLM_STORAGE_KEY)
+      if (!saved) return
+      const parsed = JSON.parse(saved)
+      setLlmConfig((prev) => ({
+        ...prev,
+        apiKey: parsed.apiKey || '',
+        baseUrl: parsed.baseUrl || prev.baseUrl,
+        model: parsed.model || prev.model
+      }))
+    } catch {}
+    try {
+      const saved = window.localStorage.getItem(CHATS_STORAGE_KEY)
+      if (!saved) return
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length) {
+        setChats(parsed)
+        setActiveChatId(parsed[0].id)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try { window.localStorage.setItem(LLM_STORAGE_KEY, JSON.stringify(llmConfig)) } catch {}
+  }, [llmConfig])
+
+  useEffect(() => {
+    try { window.localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(chats)) } catch {}
+  }, [chats])
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 220) + 'px'
+  }, [question])
+
+  useEffect(() => {
+    if (!threadRef.current) return
+    const node = threadRef.current
+    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
+  }, [activeChatId, activeChat?.messages.length, loading])
+
+  function chatsOrNew(list) { return list.length ? list : [mkChat()] }
+
+  function setActiveUpdater(updater) {
+    setChats((prev) => { const next = updater(prev); return chatsOrNew(next) })
+  }
+
+  function newChat() {
+    const c = mkChat()
+    setChats((prev) => [c, ...prev])
+    setActiveChatId(c.id)
+    setQuestion('')
+    setError('')
+  }
+
+  function deleteChat(chatId) {
+    setChats((prev) => {
+      const next = prev.filter((c) => c.id !== chatId)
+      if (!next.length) {
+        const fresh = mkChat()
+        setActiveChatId(fresh.id)
+        return [fresh]
+      }
+      if (chatId === activeChatId) setActiveChatId(next[0].id)
+      return next
+    })
+  }
+
+  function copyToClipboard(text, idx) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx(null), 2000)
+    }).catch(() => {})
+  }
+
+  async function readJsonOrThrow(res) {
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { const detail = data?.detail || `HTTP ${res.status}`; throw new Error(detail) }
+    return data
+  }
+
+  async function ask(retryText) {
+    const sourceText = typeof retryText === 'string' ? retryText : question
+    const q = sourceText.trim()
+    if (!q || !activeChat) return
+    setQuestion('')
+    setLastQuestion(q)
+    setLoading(true)
+    setError('')
+
+    setActiveUpdater((prev) =>
+      prev.map((chat) =>
+        chat.id === activeChat.id
+          ? { ...chat, title: chat.messages.length ? chat.title : trimTitle(q), messages: [...chat.messages, { role: 'user', text: q }] }
+          : chat
+      )
+    )
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: q,
+          top_k: 6,
+          route: 'auto',
+          llm_api_key: llmConfig.apiKey.trim() || undefined,
+          llm_base_url: llmConfig.baseUrl.trim() || undefined,
+          llm_model: llmConfig.model.trim() || undefined
+        })
+      })
+      const data = await readJsonOrThrow(res)
+      setActiveUpdater((prev) =>
+        prev.map((chat) =>
+          chat.id === activeChat.id
+            ? { ...chat, messages: [...chat.messages, { role: 'assistant', text: data.answer || '', routeUsed: data.route_used, sources: data.sources || [] }] }
+            : chat
+        )
+      )
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function rebuildPapers() {
+    setOpLoading('papers-reindex'); setError(''); setOpMsg('')
+    try {
+      const res = await fetch(`${API_BASE}/api/ingest/papers`, { method: 'POST' })
+      const data = await readJsonOrThrow(res)
+      setOpMsg(`论文重建完成：${data.inserted} 条 -> ${data.collection}`)
+    } catch (e) { setError(e.message) }
+    finally { setOpLoading('') }
+  }
+
+  async function rebuildGenes() {
+    setOpLoading('genes-reindex'); setError(''); setOpMsg('')
+    try {
+      const pathByCollection = {
+        genes: '/api/ingest/genes', genes_firmness: '/api/ingest/genes_firmness',
+        genes_color: '/api/ingest/genes_color', genes_acidity: '/api/ingest/genes_acidity',
+        genes_harvest: '/api/ingest/genes_harvest', genes_sugar: '/api/ingest/genes_sugar'
+      }
+      const res = await fetch(`${API_BASE}${pathByCollection[geneTarget] || '/api/ingest/genes'}`, { method: 'POST' })
+      const data = await readJsonOrThrow(res)
+      setOpMsg(`基因重建完成：${data.inserted} 条 -> ${data.collection}`)
+    } catch (e) { setError(e.message) }
+    finally { setOpLoading('') }
+  }
+
+  async function uploadPapers(e) {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    setOpLoading('papers-upload'); setError(''); setOpMsg('')
+    try {
+      const form = new FormData()
+      files.forEach((file) => form.append('files', file))
+      const res = await fetch(`${API_BASE}/api/upload/papers?ingest=true`, { method: 'POST', body: form })
+      const data = await readJsonOrThrow(res)
+      setOpMsg(`已上传 ${data.saved_count} 份论文，已导入 ${data.inserted} 条`)
+    } catch (err) { setError(err.message) }
+    finally { e.target.value = ''; setOpLoading('') }
+  }
+
+  async function uploadGenes(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setOpLoading('genes-upload'); setError(''); setOpMsg('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(`${API_BASE}/api/upload/genes?ingest=true&collection=${encodeURIComponent(geneTarget)}`, { method: 'POST', body: form })
+      const data = await readJsonOrThrow(res)
+      setOpMsg(`已上传 ${data.saved_file}，已导入 ${data.inserted} 条 -> ${data.collection}`)
+    } catch (err) { setError(err.message) }
+    finally { e.target.value = ''; setOpLoading('') }
+  }
+
+  function handleComposerKeyDown(e) {
+    if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent?.isComposing) return
+    e.preventDefault()
+    ask()
+  }
+
+  return (
+    <main className={styles.page}>
+      <div className={styles.app}>
+        <aside className={styles.sidebar}>
+          <div className={styles.sideTop}>
+            <div className={styles.brandWrap}>
+              <div className={styles.brandMark}>
+                <img className={styles.brandLogo} src="/nwafu-logo.png" alt="西北农林科技大学校徽" />
+              </div>
+              <div>
+                <div className={styles.brand}>Apple Breeding RAG</div>
+              </div>
+            </div>
+            <div className={styles.sideTopActions}>
+              <button className={styles.newChatBtn} onClick={newChat}>+ 新建对话</button>
+              <button className={styles.sidebarToggle} onClick={() => setSidebarOpen((v) => !v)}>
+                {sidebarOpen ? '收起对话列表' : '展开对话列表'}
+              </button>
+            </div>
+          </div>
+
+          <div className={`${styles.sidebarBody} ${sidebarOpen ? styles.sidebarBodyOpen : ''}`}>
+            <div className={styles.sideSectionTitle}>最近对话</div>
+            <ul className={styles.chatList}>
+              {chats.map((chat) => (
+                <li key={chat.id} className={styles.chatItemWrap}>
+                  <button
+                    className={`${styles.chatItem} ${chat.id === activeChat?.id ? styles.chatItemActive : ''}`}
+                    onClick={() => setActiveChatId(chat.id)}
+                  >
+                    {chat.title}
+                  </button>
+                  <button
+                    className={styles.chatDeleteBtn}
+                    onClick={(e) => { e.stopPropagation(); deleteChat(chat.id) }}
+                    title="删除对话"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+
+        <section className={styles.mainPane}>
+          <input ref={paperInputRef} type="file" accept=".pdf" multiple hidden onChange={uploadPapers} />
+          <input ref={geneInputRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" hidden onChange={uploadGenes} />
+
+          <header className={`${styles.topBar} ${threadHasMessages ? styles.topBarCompact : ''}`}>
+            <div className={styles.heroOrnamentA} />
+            <div className={styles.heroOrnamentB} />
+            <div className={styles.heroLeaf} />
+            <div className={styles.topTitleBlock}>
+              <div className={styles.eyebrow}>园艺专业本科毕业设计 · Apple Breeding RAG</div>
+              <h1 className={`${styles.heroTitle} ${threadHasMessages ? styles.heroTitleCompact : ''}`}>
+                {threadHasMessages ? activeChat?.title || 'Research Session' : '面向苹果育种的知识检索与问答工作台'}
+              </h1>
+              <p className={`${styles.heroLead} ${threadHasMessages ? styles.heroLeadCompact : ''}`}>
+                {threadHasMessages
+                  ? '继续围绕这条研究线索，补充论文证据、候选基因和 trait-specific 检索结果。'
+                  : '本系统为本科毕业设计成果，面向苹果果实品质性状研究，整合论文、基因位点与性状证据，辅助快速检索和构建可追溯的育种知识链。'}
+              </p>
+            </div>
+            <div className={styles.toolbar}>
+              <button
+                className={`${styles.ghostBtn} ${dataToolsOpen ? styles.ghostBtnActive : ''}`}
+                onClick={() => { setDataToolsOpen((v) => !v); setSettingsOpen(false) }}
+              >
+                {dataToolsOpen ? '收起数据与索引' : '数据与索引'}
+              </button>
+              <button
+                className={`${styles.ghostBtn} ${settingsOpen ? styles.ghostBtnActive : ''}`}
+                onClick={() => { setSettingsOpen((v) => !v); setDataToolsOpen(false) }}
+              >
+                {settingsOpen ? '收起 LLM 设置' : '配置 LLM Key'}
+              </button>
+            </div>
+          </header>
+
+          {dataToolsOpen && (
+            <section className={styles.settingsCard}>
+              <div className={styles.settingsTitle}>数据与索引</div>
+              <div className={styles.dataToolsGrid}>
+                <div className={styles.toolSection}>
+                  <div className={styles.toolSectionHeader}>
+                    <div className={styles.toolSectionTitle}>论文 PDF</div>
+                    <div className={styles.toolSectionDesc}>
+                      上传只会把这次选中的 PDF 追加进当前 `papers` collection；全量重建会重新读取 `backend/data/papers` 并覆盖整个论文索引。
+                    </div>
+                  </div>
+                  <div className={styles.dataToolsBtnRow}>
+                    <button className={styles.primaryBtn} onClick={() => paperInputRef.current?.click()} disabled={!!opLoading}>
+                      {opLoading === 'papers-upload' ? '上传中...' : '上传 PDF 并立即入库'}
+                    </button>
+                    <button className={styles.ghostBtn} onClick={rebuildPapers} disabled={opLoading === 'papers-reindex'}>
+                      {opLoading === 'papers-reindex' ? '重建中...' : '全量重建论文库'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.toolSection}>
+                  <div className={styles.toolSectionHeader}>
+                    <div className={styles.toolSectionTitle}>基因表</div>
+                    <div className={styles.toolSectionDesc}>
+                      先选择目标 collection，再决定是上传新 CSV 还是用默认文件全量重建该集合。
+                    </div>
+                  </div>
+                  <div className={styles.dataToolsGroup}>
+                    <div className={styles.dataToolsGroupLabel}>目标 collection</div>
+                    <select
+                      className={styles.select}
+                      value={geneTarget}
+                      onChange={(e) => setGeneTarget(e.target.value)}
+                    >
+                      {GENE_TARGETS.map((item) => (
+                        <option key={item.value} value={item.value}>{item.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.dataToolsBtnRow}>
+                    <button className={styles.primaryBtn} onClick={() => geneInputRef.current?.click()} disabled={!!opLoading}>
+                      {opLoading === 'genes-upload' ? '上传中...' : '上传基因 CSV'}
+                    </button>
+                    <button className={styles.ghostBtn} onClick={rebuildGenes} disabled={opLoading === 'genes-reindex'}>
+                      {opLoading === 'genes-reindex' ? '重建中...' : '重建所选基因集合'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className={styles.tip}>
+                设计上把“上传追加”和“全量重建”分开，是因为它们对应两种完全不同的后端行为：前者是增量加入，后者是替换整个 collection。
+              </p>
+            </section>
+          )}
+
+          {settingsOpen && (
+            <section className={styles.settingsCard}>
+              <div className={styles.settingsTitle}>LLM 设置</div>
+              <div className={styles.settingsGrid}>
+                <label className={styles.field}>
+                  <span>API Key</span>
+                  <input
+                    className={styles.input}
+                    type="password"
+                    value={llmConfig.apiKey}
+                    onChange={(e) => setLlmConfig((prev) => ({ ...prev, apiKey: e.target.value }))}
+                    placeholder="输入你的 API Key"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Base URL</span>
+                  <input
+                    className={styles.input}
+                    value={llmConfig.baseUrl}
+                    onChange={(e) => setLlmConfig((prev) => ({ ...prev, baseUrl: e.target.value }))}
+                    placeholder="https://api.deepseek.com"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Model</span>
+                  <input
+                    className={styles.input}
+                    value={llmConfig.model}
+                    onChange={(e) => setLlmConfig((prev) => ({ ...prev, model: e.target.value }))}
+                    placeholder="deepseek-chat"
+                  />
+                </label>
+              </div>
+              <p className={styles.tip}>
+                当前配置只保存在这个浏览器的本地存储中；提问时会随请求发送给后端，不会写回仓库或 <code className={styles.mdCode}>.env</code>。
+              </p>
+            </section>
+          )}
+
+          <div className={styles.threadShell}>
+            <div className={styles.thread} ref={threadRef}>
+              {threadHasMessages ? (
+                <>
+                  {activeChat.messages.map((m, i) => (
+                    <article key={i} className={`${styles.msg} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
+                      <div className={styles.msgHeader}>
+                        <div className={styles.msgRole}>{m.role === 'user' ? '你' : '助手'}</div>
+                        <div className={styles.msgHeaderRight}>
+                          {m.role === 'assistant' && (
+                            <button className={styles.copyBtn} onClick={() => copyToClipboard(m.text, i)} title="复制回答">
+                              {copiedIdx === i ? '已复制' : '复制'}
+                            </button>
+                          )}
+                          {m.role === 'assistant' && <div className={styles.msgBadge}>Research Response</div>}
+                        </div>
+                      </div>
+                      {m.role === 'assistant' ? (
+                        <MarkdownBlock text={m.text} />
+                      ) : (
+                        <div className={styles.msgTextUser}>{m.text}</div>
+                      )}
+                      {m.role === 'assistant' && (
+                        <>
+                          <div className={styles.msgMetaRow}>
+                            <span className={`${styles.metaPill} ${styles.routePill}`}>route · {m.routeUsed || 'auto'}</span>
+                            <span className={`${styles.metaPill} ${styles.routePillAccent}`}>
+                              {(Array.isArray(m.sources) ? m.sources.length : 0)} 张证据卡片
+                            </span>
+                          </div>
+                          {Array.isArray(m.sources) && m.sources.length > 0 && (
+                            <details className={styles.evidenceBox}>
+                              <summary className={styles.evidenceSummary}>
+                                <span>查看引用与证据卡片</span>
+                                <span className={styles.evidenceSummaryCount}>{m.sources.length}</span>
+                              </summary>
+                              <ul className={styles.evidenceList}>
+                                {m.sources.map((s, idx) => (
+                                  <li key={idx} className={styles.evidenceItem}>
+                                    <div className={styles.evidenceHead}>
+                                      <span className={styles.evidenceIndex}>[{idx + 1}]</span>
+                                      <span className={styles.evidenceType}>{sourceTypeDisplay(s.source_type)}</span>
+                                      {s.page ? <span className={styles.evidenceMeta}>p.{s.page}</span> : null}
+                                    </div>
+                                    {s.title ? <div className={styles.evidenceTitle}>{s.title}</div> : null}
+                                    <EvidenceCardBody source={s} />
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </>
+                      )}
+                    </article>
+                  ))}
+                  {loading && (
+                    <article className={`${styles.msg} ${styles.msgAssistant}`}>
+                      <div className={styles.msgRole}>助手</div>
+                      <div className={styles.loadingDots}>
+                        <span /><span /><span />
+                      </div>
+                    </article>
+                  )}
+                </>
+              ) : (
+                <div className={styles.emptyState}>
+                  <div className={styles.emptyBadge}>苹果育种助手</div>
+                  <div className={styles.emptyTitle}>从文献、基因与性状证据中，构建可追溯的育种知识链</div>
+                  <div className={styles.emptyBody}>
+                    本工作台支持直接提问、PDF 文献上传和基因表检索。系统结合检索增强生成技术，返回相关文献、候选基因与证据来源，辅助苹果果实品质性状分析。
+                  </div>
+                  <div className={styles.quickRow}>
+                    {QUICK_PROMPTS.map((prompt) => (
+                      <button key={prompt} className={styles.quickChip} onClick={() => setQuestion(prompt)}>
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {opMsg && <div className={`${styles.statusBar} ${styles.statusBarSuccess}`}>{opMsg}</div>}
+          {error && (
+            <div className={`${styles.statusBar} ${styles.statusBarError} ${styles.statusBarWithAction}`}>
+              <span>错误：{error}</span>
+              {lastQuestion && <button className={styles.retryBtn} onClick={() => ask(lastQuestion)}>重试</button>}
+            </div>
+          )}
+
+          <footer className={styles.composerShell}>
+            {threadHasMessages && (
+              <div className={styles.composerQuickRow}>
+                {QUICK_PROMPTS.slice(0, 3).map((prompt) => (
+                  <button key={prompt} className={styles.composerQuickChip} onClick={() => setQuestion(prompt)}>
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className={styles.inputBar}>
+              <textarea
+                ref={textareaRef}
+                className={styles.textarea}
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={handleComposerKeyDown}
+                placeholder="例如：哪些基因位点与苹果果肉硬度保持有关？"
+              />
+              <div className={styles.composerFooter}>
+                <div className={styles.composerMeta}>
+                  <span className={styles.metaPill}>自动路由</span>
+                  <span className={styles.metaPill}>{geneTargetDisplay(geneTarget)}</span>
+                  <span className={styles.metaPill}>{llmConfig.apiKey ? '大模型已配置' : '未配置大模型'}</span>
+                </div>
+                <div className={styles.composerHint}>Enter 发送 · Shift+Enter 换行</div>
+                <button className={styles.askBtn} onClick={() => ask()} disabled={loading || !question.trim()}>
+                  {loading ? '检索中...' : '发送'}
+                </button>
+              </div>
+            </div>
+          </footer>
+        </section>
+      </div>
+    </main>
+  )
+}

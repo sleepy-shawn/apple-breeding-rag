@@ -82,14 +82,24 @@ SUGAR_HINTS = {
 }
 SUGAR_POSITIVE = {
     "sugar", "sucrose", "fructose", "glucose", "soluble solids", "sweetness",
-    "mdsut", "mdinv", "mdsps", "mdhxk1",
-    "糖", "蔗糖", "果糖", "葡萄糖", "甜度", "可溶性固形物",
+    "mdsut", "mdinv", "mdsps", "mdhxk1", "mdsweet9b", "mdwrky9",
+    "mdcibhlh1", "mdfbp", "mdpepck", "mdmyb109", "mdbzip23", "mdbzip46",
+    "糖", "蔗糖", "果糖", "葡萄糖", "甜度", "可溶性固形物", "糖积累",
 }
 SUGAR_NEGATIVE = {"fire blight", "scab", "disease", "病害"}
 SUGAR_STRICT = {
-    "sucrose", "soluble solids", "sweetness",
+    "sucrose", "soluble solids", "sweetness", "sugar",
     "mdsut1", "mdsut4", "mdinv", "mdsps", "mdhxk1",
-    "蔗糖", "甜度", "可溶性固形物",
+    "mdsweet9b", "mdwrky9", "mdcibhlh1", "mdfbp", "mdpepck",
+    "蔗糖", "甜度", "可溶性固形物", "糖积累",
+}
+
+TRAIT_KEYWORD_SETS: dict[str | None, tuple[set[str], set[str], set[str]]] = {
+    "firmness": (FIRMNESS_POSITIVE, FIRMNESS_NEGATIVE, FIRMNESS_STRICT),
+    "color": (COLOR_POSITIVE, COLOR_NEGATIVE, COLOR_STRICT),
+    "acidity": (ACIDITY_POSITIVE, ACIDITY_NEGATIVE, ACIDITY_STRICT),
+    "harvest": (HARVEST_POSITIVE, HARVEST_NEGATIVE, HARVEST_STRICT),
+    "sugar": (SUGAR_POSITIVE, SUGAR_NEGATIVE, SUGAR_STRICT),
 }
 
 QUESTION_GENE_HINTS = {
@@ -196,6 +206,26 @@ def _paper_focus_summary(sources: list["RetrievedItem"]) -> list[str]:
 
 
 @dataclass
+class RerankWeights:
+    positive_keyword_boost: float = 0.06
+    negative_keyword_penalty: float = 0.12
+    gene_name_match_boost: float = 0.14
+    gene_source_boost: float = 0.16
+    generic_label_penalty: float = 0.18
+    explicit_gene_mention_boost: float = 0.22
+    noisy_column_penalty: float = 0.25
+    non_paper_penalty: float = 0.28
+    wrong_trait_penalty: float = 0.35
+    paper_title_match_threshold: float = 0.45
+    paper_title_match_bonus: float = 0.18
+    paper_title_score_weight: float = 0.9
+    non_gene_penalty: float = 0.03
+
+
+RERANK_WEIGHTS = RerankWeights()
+
+
+@dataclass
 class RetrievedItem:
     source_type: str
     source_id: str
@@ -273,66 +303,19 @@ class RagService:
         q = question.lower()
         return any(k in q for k in FIRMNESS_HINTS)
 
-    def _trait_collections(self, trait: str | None) -> list[str]:
-        """Return trait-specific curated + GDR collections to prioritize."""
-        gdr = self.settings.qdrant_genes_gdr_collection
-        gdr_curated = self.settings.qdrant_genes_gdr_curated_collection
-        if trait == "firmness":
-            return [
-                self.settings.qdrant_genes_firmness_collection,
-                self.settings.qdrant_genes_gdr_curated_firmness_collection,
-                gdr_curated,
-                self.settings.qdrant_genes_gdr_firmness_collection,
-                gdr,
-            ]
-        if trait == "color":
-            return [
-                self.settings.qdrant_genes_color_collection,
-                self.settings.qdrant_genes_gdr_curated_color_collection,
-                gdr_curated,
-                self.settings.qdrant_genes_gdr_color_collection,
-                gdr,
-            ]
-        if trait == "acidity":
-            return [
-                self.settings.qdrant_genes_acidity_collection,
-                self.settings.qdrant_genes_gdr_curated_acidity_collection,
-                gdr_curated,
-                self.settings.qdrant_genes_gdr_acidity_collection,
-                gdr,
-            ]
-        if trait == "harvest":
-            return [
-                self.settings.qdrant_genes_harvest_collection,
-                self.settings.qdrant_genes_gdr_curated_harvest_collection,
-                gdr_curated,
-                self.settings.qdrant_genes_gdr_harvest_collection,
-                gdr,
-            ]
-        if trait == "sugar":
-            return [
-                self.settings.qdrant_genes_sugar_collection,
-                self.settings.qdrant_genes_gdr_curated_sugar_collection,
-                gdr_curated,
-                self.settings.qdrant_genes_gdr_sugar_collection,
-                gdr,
-            ]
-        return [gdr_curated, gdr]
-
     def retrieve(self, question: str, route: str, top_k: int) -> list[RetrievedItem]:
         trait = self.detect_trait(question)
-        trait_cols = self._trait_collections(trait)
+        trait_cols = self.settings.trait_collections(trait)
+        papers_col = self.settings.collection_name("papers")
+        genes_col = self.settings.collection_name("genes")
         paper_query = _looks_like_paper_query(question)
         collections: list[str]
         if route == "papers":
-            collections = [self.settings.qdrant_papers_collection]
+            collections = [papers_col]
         elif route == "genes":
-            collections = trait_cols + [self.settings.qdrant_genes_collection]
+            collections = trait_cols + [genes_col]
         else:
-            collections = (
-                trait_cols
-                + [self.settings.qdrant_genes_collection, self.settings.qdrant_papers_collection]
-            )
+            collections = trait_cols + [genes_col, papers_col]
 
         merged: list[RetrievedItem] = []
         for collection in collections:
@@ -343,7 +326,7 @@ class RagService:
             else:
                 if collection in trait_cols:
                     limit = max(top_k, 5)
-                elif collection == self.settings.qdrant_genes_collection:
+                elif collection == genes_col:
                     limit = max(4, top_k // 2 + 1)
                 else:
                     limit = max(3, top_k // 2)
@@ -419,24 +402,15 @@ class RagService:
         paper_query = _looks_like_paper_query(question)
         gene_mentions = {m.group(0).lower() for m in GENE_NAME_RE.finditer(q)}
 
-        # Select keyword sets based on detected trait
-        if trait == "firmness":
-            pos_kw, neg_kw, strict_kw = FIRMNESS_POSITIVE, FIRMNESS_NEGATIVE, FIRMNESS_STRICT
-        elif trait == "color":
-            pos_kw, neg_kw, strict_kw = COLOR_POSITIVE, COLOR_NEGATIVE, COLOR_STRICT
-        elif trait == "acidity":
-            pos_kw, neg_kw, strict_kw = ACIDITY_POSITIVE, ACIDITY_NEGATIVE, ACIDITY_STRICT
-        elif trait == "harvest":
-            pos_kw, neg_kw, strict_kw = HARVEST_POSITIVE, HARVEST_NEGATIVE, HARVEST_STRICT
-        elif trait == "sugar":
-            pos_kw, neg_kw, strict_kw = SUGAR_POSITIVE, SUGAR_NEGATIVE, SUGAR_STRICT
-        else:
-            pos_kw, neg_kw, strict_kw = set(), set(), set()
+        kw_sets = TRAIT_KEYWORD_SETS.get(trait, (set(), set(), set()))
+        pos_kw, neg_kw, strict_kw = kw_sets
 
         def hit_counts(text: str) -> tuple[int, int]:
             pos_hits = sum(1 for k in pos_kw if k in text)
             neg_hits = sum(1 for k in neg_kw if k in text)
             return pos_hits, neg_hits
+
+        w = RERANK_WEIGHTS
 
         def adjusted_score(item: RetrievedItem) -> float:
             score = item.score
@@ -444,37 +418,34 @@ class RagService:
             title = (item.title or "").lower().strip()
             title_match = _title_match_strength(question, item.title)
 
-            # De-prioritize noisy generated columns from flattened tables.
             if text.count("col_") >= 10:
-                score -= 0.25
+                score -= w.noisy_column_penalty
 
             if paper_query:
                 if item.source_type == "paper":
-                    score += 0.9 * title_match
-                    if title_match > 0.45:
-                        score += 0.18
+                    score += w.paper_title_score_weight * title_match
+                    if title_match > w.paper_title_match_threshold:
+                        score += w.paper_title_match_bonus
                 else:
-                    score -= 0.28
+                    score -= w.non_paper_penalty
 
             if trait:
                 pos_hits, neg_hits = hit_counts(text)
-                score += 0.06 * pos_hits
-                score -= 0.12 * neg_hits
+                score += w.positive_keyword_boost * pos_hits
+                score -= w.negative_keyword_penalty * neg_hits
                 if item.source_type == "gene" and item.trait and item.trait.lower() != trait:
-                    score -= 0.35
-                # Extra boost for gene records on trait-specific queries
+                    score -= w.wrong_trait_penalty
                 if item.source_type == "gene":
-                    score += 0.16
+                    score += w.gene_source_boost
                 else:
-                    score -= 0.03
-                # Prefer standard gene identifiers over generic trait labels such as Brix/PickDay.
+                    score -= w.non_gene_penalty
                 if GENE_NAME_RE.search(text):
-                    score += 0.14
+                    score += w.gene_name_match_boost
                 if title and any(tok in title for tok in GENERIC_LABEL_TOKENS) and not GENE_NAME_RE.search(title):
-                    score -= 0.18
+                    score -= w.generic_label_penalty
 
             if gene_mentions and any(gene in text for gene in gene_mentions):
-                score += 0.22
+                score += w.explicit_gene_mention_boost
 
             return score
 
@@ -482,7 +453,7 @@ class RagService:
         if paper_query:
             matched_papers = [
                 item for item in reranked
-                if item.source_type == "paper" and _title_match_strength(question, item.title) > 0.45
+                if item.source_type == "paper" and _title_match_strength(question, item.title) > w.paper_title_match_threshold
             ]
             if matched_papers:
                 return matched_papers[:top_k]
@@ -546,8 +517,9 @@ class RagService:
                 citation += f" | p.{src.page}"
             if src.reference_genome:
                 citation += f" | ref={src.reference_genome}"
+            full_text = src.chunk_text.replace("\n", " ").strip()
             snippet = src.chunk_text[:220].replace("\n", " ").strip()
-            line = f"{citation}\n{snippet}"
+            line = f"{citation}\n{full_text}"
             context_lines.append(line)
             coord_note = ""
             if src.coordinate_note and (
@@ -683,13 +655,16 @@ class RagService:
                 '——对于直接遗传证据，使用"通过GWAS直接证实……"、"QTL分析表明……"、"遗传关联研究（直接证据）显示……"等表达；'
                 '——对于功能或表达层面证据，使用"转录组分析进一步支持……"、"功能实验表明……"、"间接证据来自……"等表达。'
                 '答案中必须至少出现一处含"直接证据"或等价短语的句子，以及一处含"间接证据"或等价短语的句子。\n'
-                '3. 行文中随时插入内联引用，格式为[1]、[2]等，紧跟在支持该论点的句子或短语之后。'
+                "3. 当描述基因功能时，必须说明：(a) 该基因编码的蛋白质类型或功能域，"
+                "(b) 其分子作用机制（如转录激活、酶催化、蛋白降解、信号转导等），"
+                "(c) 其对性状的直接影响路径。对于信号通路类问题，按上游→下游顺序组织答案，明确每个节点之间的调控关系。\n"
+                '4. 行文中随时插入内联引用，格式为[1]、[2]等，紧跟在支持该论点的句子或短语之后。'
                 "答案全文中至少分散出现2处内联引用。末尾附一个简短参考文献列表（每条一行，格式：[编号] 来源描述），不超过6条。\n"
-                "4. 基因名称使用标准命名（如MdMYB1、MdALMT9）；参考末尾的Evidence level index，"
+                "5. 基因名称使用标准命名（如MdMYB1、MdALMT9）；参考末尾的Evidence level index，"
                 "对A级条目在句中说明遗传关联强度或染色体位置，对B级条目说明功能实验背景。\n"
-                '5. 若证据中的chr/pos缺少明确参考基因组，在行文中自然提及"坐标来自原始文献参考系，跨研究比较需谨慎"。\n'
-                '6. 如果用户问题中的术语没有在证据里直接出现，明确区分"论文已命中"与"该术语在当前证据片段中未直接出现"，并说明最接近的概念。\n'
-                "7. 中文问题用中文回答；英文问题用英文回答。"
+                '6. 若证据中的chr/pos缺少明确参考基因组，在行文中自然提及"坐标来自原始文献参考系，跨研究比较需谨慎"。\n'
+                '7. 如果用户问题中的术语没有在证据里直接出现，明确区分"论文已命中"与"该术语在当前证据片段中未直接出现"，并说明最接近的概念。\n'
+                "8. 中文问题用中文回答；英文问题用英文回答。"
             )
             user_prompt = (
                 f"问题:\n{question}\n\n"
