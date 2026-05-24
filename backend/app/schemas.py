@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
     top_k: int = Field(default=6, ge=1, le=20)
-    route: Literal["auto", "papers", "genes", "hybrid"] = "auto"
+    route: Literal["auto", "papers", "genes", "hybrid", "llm_only"] = "auto"
     llm_api_key: str | None = None
     llm_base_url: str | None = None
     llm_model: str | None = None

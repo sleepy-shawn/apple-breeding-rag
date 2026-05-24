@@ -478,6 +478,40 @@ class RagService:
         # Fallback: return top results without strict filtering
         return reranked[:top_k]
 
+    def generate_llm_only(
+        self,
+        question: str,
+        llm_api_key: str | None = None,
+        llm_base_url: str | None = None,
+        llm_model: str | None = None,
+    ) -> str:
+        """直接让大模型回答，不走任何检索 — 用于对照展示。"""
+        llm = self._make_llm_client(llm_api_key, llm_base_url)
+        if llm is None:
+            return "未配置大模型 API Key，无法调用纯模型回答。"
+        system_prompt = (
+            "你是苹果（Malus domestica）育种领域的科研助手。"
+            "用户的问题与你的对话**没有附带任何检索证据**，请仅凭你的训练知识作答。\n"
+            "回答规则：\n"
+            "1. 全文用 3-4 段紧凑的综述风格中文，禁用 Markdown 标题（# / ##）。\n"
+            "2. 在正文最开头单独一段，用一句不超过 60 字的结论起头，格式为：**结论：**xxxx。\n"
+            "3. 措辞自然，可以提到 GWAS / QTL / 转录因子 / 通路等概念。"
+            "基因名用标准命名（如 MdNAC18、MdMYB10、Ma1），染色体写作 Chr5、Chr15。"
+            "品种 / 物种名用 Markdown 斜体（*Honeycrisp*、*Malus domestica*）。\n"
+            "4. 明确说明：本回答**未经过检索增强**，仅基于模型预训练知识；"
+            "如需精确的论文出处或染色体位置，请切回 RAG 模式。\n"
+            "5. 中文问题用中文回答；英文问题用英文回答。"
+        )
+        completion = llm.chat.completions.create(
+            model=(llm_model or self.settings.llm_model).strip(),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": question},
+            ],
+            temperature=0.4,
+        )
+        return completion.choices[0].message.content or ""
+
     def generate(
         self,
         question: str,
@@ -661,8 +695,12 @@ class RagService:
                 "(c) 对性状的影响路径。信号通路问题按上游 → 下游顺序组织。\n"
                 '6. 内联引用使用 [1]、[2] 等编号，紧跟在被支持的论点句末，避免连续堆叠多个编号。全文至少分散出现 2 处引用。'
                 '末尾单独一段附简短参考文献（每条一行，格式：[编号] 来源描述），不超过 6 条。\n'
-                "7. 基因名称使用标准命名（如 MdMYB1、MdALMT9）；染色体写作 Chr5、Chr15 等形式。"
+                "7. 基因名称使用标准命名（如 MdMYB1、MdALMT9），染色体写作 Chr5、Chr15 等形式。"
                 "对 A 级证据可在句中说明遗传关联强度或染色体位置，对 B 级证据说明功能实验背景。\n"
+                "7b. 排版约定（前端会按此渲染）：\n"
+                "  • 苹果品种 / 栽培种 / 物种名一律用 Markdown 斜体包裹，例如 *Honeycrisp*、*Gala*、*Fuji*、*Granny Smith*、*Malus domestica*、*富士*、*嘎啦*。\n"
+                "  • 基因符号（MdNAC18、Ma1 等）和染色体（Chr5）保留原文，前端会自动按学术惯例渲染为斜体；你不需要再手动加 *。\n"
+                "  • 不要把整段句子或非品种/非物种的中文短语放进 *...*，避免误高亮。\n"
                 '8. 若证据中的 chr/pos 缺少明确参考基因组，在相应句子末尾自然提及"坐标来自原始文献参考系，跨研究比较需谨慎"。\n'
                 '9. 如果用户问题中的术语没有在证据里直接出现，明确区分"论文已命中"与"该术语在当前证据片段中未直接出现"，并说明最接近的概念。\n'
                 "10. 中文问题用中文回答；英文问题用英文回答。"

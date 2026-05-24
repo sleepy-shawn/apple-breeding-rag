@@ -32,6 +32,34 @@ def health() -> dict:
     return {"ok": True}
 
 
+@app.get(f"{settings.api_prefix}/files")
+def list_data_files() -> dict:
+    def scan(folder: Path, patterns: tuple[str, ...]) -> list[dict]:
+        if not folder.exists():
+            return []
+        out: list[dict] = []
+        for p in sorted(folder.iterdir()):
+            if not p.is_file() or p.name.startswith("."):
+                continue
+            if patterns and p.suffix.lower() not in patterns:
+                continue
+            try:
+                size = p.stat().st_size
+            except OSError:
+                size = 0
+            out.append({"name": p.name, "size": size})
+        return out
+
+    papers = scan(Path("data/papers"), (".pdf",))
+    genes = scan(Path("data/genes"), (".csv", ".tsv"))
+    return {
+        "papers": papers,
+        "genes": genes,
+        "papers_count": len(papers),
+        "genes_count": len(genes),
+    }
+
+
 def ingest_papers_impl(replace: bool = False, pdf_paths: list[Path] | None = None) -> IngestResponse:
     base = Path("data/papers")
     if not base.exists():
@@ -211,6 +239,16 @@ def on_startup() -> None:
 def chat(body: ChatRequest) -> ChatResponse:
     if settings.auto_ingest_on_startup:
         ensure_bootstrap_ingested()
+
+    # 纯模型直答：完全跳过检索与上下文，仅做对照展示
+    if body.route == "llm_only":
+        answer = rag.generate_llm_only(
+            body.question,
+            llm_api_key=body.llm_api_key,
+            llm_base_url=body.llm_base_url,
+            llm_model=body.llm_model,
+        )
+        return ChatResponse(answer=answer, route_used="llm_only", sources=[])
 
     route = rag.route(body.question, body.route)
     sources = rag.retrieve(body.question, route=route, top_k=body.top_k)

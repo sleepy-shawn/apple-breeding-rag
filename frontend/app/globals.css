@@ -1,14 +1,42 @@
 :root {
-  --bg-a: #fffaf0;
-  --bg-b: #f7f6e8;
-  --surface: #fffef8;
-  --text: #2d3119;
-  --muted: #66724a;
-  --line: rgba(133, 148, 43, 0.16);
-  --brand: #6e812a;
-  --brand-soft: #8ba43b;
-  --ok: #5f7b1f;
-  --danger: #b4542f;
+  /* ── Ink & paper ──────────────────────────────────────────────────────
+     "墨" 与 "纸"：墨是带绿调的深棕，比纯黑温和；纸是带麦色的米白。 */
+  --ink: #1f2410;
+  --ink-soft: #3d4923;
+  --ink-mute: #6b754c;
+  --ink-faint: #9aa276;
+
+  --paper: #faf4e4;
+  --paper-warm: #f4ecd2;
+  --paper-deep: #ebe1c0;
+  --paper-edge: #d8cea3;
+
+  /* ── Accents（仅两支：深橄榄 + 深金。其他色都是这两支的稀释）─────── */
+  --olive: #5e6e1f;
+  --olive-deep: #4a5818;
+  --olive-soft: #8c9d34;
+
+  --gold: #a78127;          /* 深编辑级金，不是 SaaS 黄 */
+  --gold-deep: #87671a;
+  --gold-soft: #d8b144;
+  --gold-wash: rgba(167, 129, 39, 0.08);
+
+  --leaf: #6b8c2a;
+  --rust: #a14925;           /* 唯一暖红，仅作 error / 删除 */
+
+  /* ── Hairline rules ─────────────────────────────────────────────────── */
+  --rule: rgba(80, 88, 30, 0.16);
+  --rule-soft: rgba(80, 88, 30, 0.08);
+
+  /* ── Type stacks ────────────────────────────────────────────────────── */
+  --display: var(--font-display), "Iowan Old Style", "Source Han Serif SC",
+    "Songti SC", "STSong", serif;
+  --body: var(--font-body), var(--font-cjk), "PingFang SC", "Hiragino Sans GB",
+    "Source Han Serif SC", "Songti SC", "STSong", serif;
+  --cjk: var(--font-cjk), "Source Han Serif SC", "PingFang SC", "Hiragino Sans GB",
+    "Songti SC", serif;
+  --mono: var(--font-mono), "JetBrains Mono", "SF Mono", "Cascadia Code",
+    Consolas, monospace;
 }
 
 * {
@@ -22,13 +50,34 @@ body {
 }
 
 body {
-  color: var(--text);
-  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", "Hiragino Sans GB", "Heiti SC", sans-serif;
-  background:
-    radial-gradient(circle at 0% 12%, rgba(247, 201, 71, 0.22), transparent 26%),
-    radial-gradient(circle at 100% 0%, rgba(156, 181, 67, 0.18), transparent 24%),
-    radial-gradient(circle at 80% 100%, rgba(243, 228, 156, 0.18), transparent 26%),
-    linear-gradient(180deg, var(--bg-a), var(--bg-b));
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15.5px;
+  line-height: 1.65;
+  letter-spacing: 0.003em;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "ss01" 1, "onum" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* 三层背景：
+     1. 极淡的纸张噪点 SVG（数据 URL，无外部依赖）
+     2. 角落两团弥散光晕给点温度
+     3. 麦黄渐变作底 */
+  background-color: var(--paper);
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.14  0 0 0 0 0.14  0 0 0 0 0.06  0 0 0 0.055 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+    radial-gradient(circle at 8% 6%, rgba(216, 177, 68, 0.16), transparent 32%),
+    radial-gradient(circle at 96% 4%, rgba(107, 140, 42, 0.12), transparent 28%),
+    radial-gradient(circle at 84% 96%, rgba(216, 177, 68, 0.1), transparent 30%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-warm) 100%);
+  background-attachment: fixed, fixed, fixed, fixed, fixed;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(167, 129, 39, 0.25);
+  color: var(--ink);
 }
 
 button,
@@ -36,4 +85,19 @@ input,
 select,
 textarea {
   font: inherit;
+  color: inherit;
 }
+
+/* 自定义滚动条 — 极细，符合手册感 */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(80, 88, 30, 0.18);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: rgba(80, 88, 30, 0.32); background-clip: padding-box; }

@@ -655,42 +655,111 @@ function PipelineLoader() {
 }
 
 // ── Empty state hero (project highlights + arch diagram + stats) ──────────
-const HIGHLIGHTS = [
-  { icon: '📚', title: '文献 + 基因双库', desc: '苹果育种领域 75 篇论文与 6 个性状基因表统一入库' },
-  { icon: '🧭', title: '智能路由', desc: '按问题自动选择论文库 / 基因库 / 混合检索路径' },
-  { icon: '🔗', title: '可追溯证据', desc: '每条回答附 source 卡片，可见基因/SNP/染色体/P 值' },
-  { icon: '🌐', title: '可替换大模型', desc: '前端配置 DeepSeek / 兼容 OpenAI API 的任意模型' }
+const STAT_PILLS = [
+  { value: '75', label: '篇论文' },
+  { value: '18', label: '份基因表' },
+  { value: '6', label: '个性状' },
+  { value: 'DeepSeek', label: '可换任意 OpenAI 兼容模型' }
 ]
 
-const STATS = [
-  { value: '75', label: '苹果育种文献' },
-  { value: '6', label: '性状基因库' },
-  { value: 'RAG', label: '检索增强生成' },
-  { value: '100%', label: '引用可追溯' }
-]
+// 内联 SVG 线稿（替换 emoji，统一线宽与色彩）
+const ICON_DOC = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M9 12h6M9 16h6M9 8h2" />
+  </svg>
+)
+const ICON_VEC = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="1.6" /><circle cx="18" cy="6" r="1.6" /><circle cx="6" cy="18" r="1.6" /><circle cx="18" cy="18" r="1.6" /><circle cx="12" cy="12" r="1.6" />
+    <path d="M7 7l4 4M17 7l-4 4M7 17l4-4M17 17l-4-4" opacity="0.55" />
+  </svg>
+)
+const ICON_ROUTE = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 6h6l4 12h6" /><path d="M4 18h6l4-12h6" opacity="0.55" />
+  </svg>
+)
+const ICON_STAR = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v18M3 12h18" /><path d="M5 5l14 14M19 5L5 19" opacity="0.45" />
+  </svg>
+)
 
 const ARCH_NODES = [
-  { icon: '📄', label: '论文 PDF\n基因表 CSV' },
-  { icon: '🧬', label: '嵌入向量\nMilvus 索引' },
-  { icon: '🔍', label: '智能路由\n分库检索' },
-  { icon: '✦', label: '大模型生成\n带引用回答' }
+  { icon: ICON_DOC, label: '论文 PDF\n基因表 CSV' },
+  { icon: ICON_VEC, label: '嵌入向量\nMilvus 索引' },
+  { icon: ICON_ROUTE, label: '智能路由\n分库检索' },
+  { icon: ICON_STAR, label: '大模型生成\n带引用回答' }
 ]
+
+// 苹果植物专论线稿：一颗完整苹果（带枝叶）+ 旁边一个半剖（露出果心五瓣 + 种子）
+// 暗合「育种 / 基因 / 候选位点」主题
+const APPLE_BOTANICAL = (
+  <svg className={styles.heroOrnamentSvg} viewBox="0 0 240 320" fill="none" aria-hidden="true">
+    <g stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" fill="none">
+      {/* ── 主苹果（完整） ───────────────────────────────────────── */}
+      {/* 果体 — 双肩 + 圆底的苹果轮廓 */}
+      <path d="M 118 118
+               C 108 102, 70 100, 56 124
+               C 40 154, 40 198, 58 230
+               C 76 260, 104 278, 118 274
+               C 132 278, 160 260, 178 230
+               C 196 198, 196 154, 180 124
+               C 166 100, 128 102, 118 118 Z" />
+      {/* 顶部小凹陷 */}
+      <path d="M 110 116 Q 118 110, 126 116" opacity="0.7" />
+      {/* 果柄 */}
+      <path d="M 118 114 C 120 100, 126 86, 134 76" />
+      {/* 叶片（不对称椭圆，尖端） */}
+      <path d="M 134 76
+               C 152 66, 174 64, 188 48
+               C 176 68, 158 84, 140 92 Z" />
+      {/* 叶脉 */}
+      <path d="M 142 86 C 154 78, 168 68, 182 54" opacity="0.55" />
+      <path d="M 150 90 C 156 84, 162 78, 168 72" opacity="0.4" />
+      {/* 果体内侧轻微体积线（植物图鉴惯例） */}
+      <path d="M 80 142 C 72 175, 72 215, 84 248" opacity="0.32" />
+
+      {/* ── 半剖苹果（科研图鉴感，露出五瓣果心 + 种子） ───────────── */}
+      {/* 半剖外轮廓，缩在主图右上角 */}
+      <g transform="translate(160, 12)" opacity="0.7">
+        <path d="M 0 18
+                 C 0 8, 12 0, 22 4
+                 C 26 -4, 38 -2, 40 16
+                 C 42 32, 30 44, 22 44
+                 C 14 44, 0 32, 0 18 Z" />
+        {/* 顶端凹 + 小果柄 */}
+        <path d="M 18 4 Q 22 1, 26 4" />
+        <path d="M 22 2 C 24 -4, 28 -8, 32 -10" />
+        {/* 五瓣果心（star pattern）*/}
+        <path d="M 22 22
+                 L 14 18 L 17 27 L 22 30
+                 L 27 27 L 30 18 Z" opacity="0.55" />
+        {/* 两枚种子 */}
+        <path d="M 16 26 C 14 28, 14 32, 17 33 C 19 31, 19 28, 16 26 Z" opacity="0.6" />
+        <path d="M 28 26 C 30 28, 30 32, 27 33 C 25 31, 25 28, 28 26 Z" opacity="0.6" />
+      </g>
+    </g>
+  </svg>
+)
 
 function EmptyHero({ onPickPrompt }) {
   return (
     <div className={styles.emptyState}>
-      <div className={styles.emptyBadge}>苹果育种助手 · 本科毕业设计</div>
-      <div className={styles.emptyTitle}>从文献、基因与性状证据中，构建可追溯的育种知识链</div>
+      <div className={styles.emptyOrnament}>{APPLE_BOTANICAL}</div>
+      <div className={styles.emptyBadge}>本科毕业设计 · 园艺专业</div>
+      <div className={styles.emptyTitle}>把论文和基因表里散落的证据，连成可以追溯的回答</div>
       <div className={styles.emptyBody}>
-        整合苹果育种领域论文与候选基因数据库，结合检索增强生成（RAG）技术，针对果实品质性状（硬度、颜色、酸度、糖度、采收期）提供可追溯的问答与证据支持。
+        围绕硬度、颜色、酸度、糖度、采收期这几个果实品质性状，把已发表论文和人工整理的基因表打通成一个能直接问答的库。回答的每条引用都能点开看原文。
       </div>
 
-      <div className={styles.statsStrip}>
-        {STATS.map((s) => (
-          <div key={s.label} className={styles.statCard}>
-            <div className={styles.statValue}>{s.value}</div>
-            <div className={styles.statLabel}>{s.label}</div>
-          </div>
+      <div className={styles.statPills}>
+        {STAT_PILLS.map((s, i) => (
+          <span key={s.label} className={styles.statPill}>
+            <span className={styles.statPillValue}>{s.value}</span>
+            <span className={styles.statPillLabel}>{s.label}</span>
+            {i < STAT_PILLS.length - 1 && <span className={styles.statPillDot}>◆</span>}
+          </span>
         ))}
       </div>
 
@@ -706,17 +775,7 @@ function EmptyHero({ onPickPrompt }) {
         ))}
       </div>
 
-      <div className={styles.highlightGrid}>
-        {HIGHLIGHTS.map((h) => (
-          <div key={h.title} className={styles.highlightCard}>
-            <div className={styles.highlightIcon}>{h.icon}</div>
-            <div className={styles.highlightTitle}>{h.title}</div>
-            <div className={styles.highlightDesc}>{h.desc}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className={styles.quickRowLabel}>试试这些问题</div>
+      <div className={styles.quickRowLabel}>从这些问题开始</div>
       <div className={styles.quickRow}>
         {QUICK_PROMPTS.map((prompt) => (
           <button key={prompt} className={styles.quickChip} onClick={() => onPickPrompt(prompt)}>
@@ -738,11 +797,11 @@ function AboutModal({ open, onClose }) {
         <div className={styles.modalEyebrow}>About</div>
         <h2 className={styles.modalTitle}>Apple Breeding RAG</h2>
         <p className={styles.modalLead}>
-          面向苹果育种科研场景的检索增强问答系统，本科毕业设计成果。聚焦苹果果实品质性状的文献查询与候选基因证据整合。
+          本科毕业设计。把苹果育种相关的论文和人工整理的基因表合到一个能直接问答的库里，回答都附出处，方便核对。
         </p>
 
         <div className={styles.modalSection}>
-          <div className={styles.modalSectionTitle}>技术栈</div>
+          <div className={styles.modalSectionTitle}>用到的东西</div>
           <div className={styles.modalChips}>
             <span className={styles.modalChip}>Next.js 14</span>
             <span className={styles.modalChip}>FastAPI</span>
@@ -754,24 +813,110 @@ function AboutModal({ open, onClose }) {
         </div>
 
         <div className={styles.modalSection}>
-          <div className={styles.modalSectionTitle}>数据范围</div>
+          <div className={styles.modalSectionTitle}>库里有什么</div>
           <ul className={styles.modalList}>
-            <li>苹果育种相关论文 75 篇（涵盖 GWAS、QTL、候选基因功能验证）</li>
-            <li>6 个性状基因库：硬度、颜色、酸度、糖度、采收期、通用</li>
-            <li>人工整理证据条目（性状 / 基因 / SNP / 染色体 / P 值）</li>
+            <li>苹果育种相关论文 75 篇，覆盖 GWAS、QTL 和候选基因功能验证</li>
+            <li>6 个性状的候选基因表：硬度、颜色、酸度、糖度、采收期，外加一个通用</li>
+            <li>每条基因记录都标了性状、SNP、染色体位置和 P 值，方便核对</li>
           </ul>
         </div>
 
         <div className={styles.modalSection}>
-          <div className={styles.modalSectionTitle}>系统能力</div>
+          <div className={styles.modalSectionTitle}>能做什么</div>
           <ul className={styles.modalList}>
-            <li>问题智能路由：自动判定走论文库、基因库或混合检索</li>
-            <li>引用可追溯：每条回答附 source 卡片，可见出处、染色体、统计量</li>
-            <li>支持上传新文献与基因表，可全量重建索引</li>
+            <li>根据问题自动决定走论文、基因表，还是两边都查</li>
+            <li>答案里 [1] [2] 可以点开，直接跳到对应的原文或基因记录</li>
+            <li>支持上传新论文和基因表，可重建索引</li>
           </ul>
         </div>
 
-        <div className={styles.modalFoot}>本科毕业设计成果 · 仅供学术与教学用途</div>
+        <div className={styles.modalFoot}>本科毕业设计 · 仅供学术与教学使用</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Files modal — 看 data/papers + data/genes 里实际有哪些文件 ────────────
+function formatBytes(n) {
+  if (!n && n !== 0) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+function FilesModal({ open, loading, data, onClose, onRefresh }) {
+  if (!open) return null
+  const papers = data?.papers || []
+  const genes = data?.genes || []
+  const err = data?.error
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={`${styles.modalCard} ${styles.modalCardWide}`} onClick={(e) => e.stopPropagation()}>
+        <button className={styles.modalClose} onClick={onClose} aria-label="关闭">×</button>
+        <div className={styles.modalEyebrow}>文件夹</div>
+        <h2 className={styles.modalTitle}>data 目录里的文件</h2>
+        <p className={styles.modalLead}>
+          这些是后端 <code className={styles.mdCode}>data/papers</code> 和 <code className={styles.mdCode}>data/genes</code> 里实际存在的文件。重建索引时会从这里读。
+        </p>
+
+        <div className={styles.filesActions}>
+          <button className={styles.ghostBtn} onClick={onRefresh} disabled={loading}>
+            {loading ? '读取中…' : '重新读取'}
+          </button>
+          {!loading && data && !err && (
+            <span className={styles.filesSummary}>
+              PDF {data.papers_count} 份 · 基因表 {data.genes_count} 份
+            </span>
+          )}
+        </div>
+
+        {err && <div className={styles.filesError}>读取失败：{err}</div>}
+
+        {!err && (
+          <div className={styles.filesGrid}>
+            <section className={styles.filesPane}>
+              <div className={styles.filesPaneHead}>
+                <span>data/papers</span>
+                <span className={styles.filesPaneCount}>{papers.length}</span>
+              </div>
+              {loading && !papers.length ? (
+                <div className={styles.filesEmpty}>读取中…</div>
+              ) : papers.length ? (
+                <ul className={styles.filesList}>
+                  {papers.map((f) => (
+                    <li key={f.name} className={styles.filesItem}>
+                      <span className={styles.filesName} title={f.name}>{f.name}</span>
+                      <span className={styles.filesSize}>{formatBytes(f.size)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.filesEmpty}>没有 PDF 文件</div>
+              )}
+            </section>
+
+            <section className={styles.filesPane}>
+              <div className={styles.filesPaneHead}>
+                <span>data/genes</span>
+                <span className={styles.filesPaneCount}>{genes.length}</span>
+              </div>
+              {loading && !genes.length ? (
+                <div className={styles.filesEmpty}>读取中…</div>
+              ) : genes.length ? (
+                <ul className={styles.filesList}>
+                  {genes.map((f) => (
+                    <li key={f.name} className={styles.filesItem}>
+                      <span className={styles.filesName} title={f.name}>{f.name}</span>
+                      <span className={styles.filesSize}>{formatBytes(f.size)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.filesEmpty}>没有基因表文件</div>
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -789,8 +934,11 @@ export default function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [dataToolsOpen, setDataToolsOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
-  const [presentMode, setPresentMode] = useState(false)
+  const [filesOpen, setFilesOpen] = useState(false)
+  const [filesData, setFilesData] = useState(null)
+  const [filesLoading, setFilesLoading] = useState(false)
   const [geneTarget, setGeneTarget] = useState('genes')
+  const [llmOnly, setLlmOnly] = useState(false) // 关掉 RAG，让大模型直接答（用于对照）
   const [llmConfig, setLlmConfig] = useState({
     apiKey: '',
     baseUrl: 'https://api.deepseek.com',
@@ -885,6 +1033,44 @@ export default function HomePage() {
     }).catch(() => {})
   }
 
+  function clearLocalCache() {
+    const ok = window.confirm('确定要清掉本地缓存吗？\n会删掉所有对话记录和 LLM 设置，并刷新页面。')
+    if (!ok) return
+    try {
+      window.localStorage.removeItem(LLM_STORAGE_KEY)
+      window.localStorage.removeItem(CHATS_STORAGE_KEY)
+    } catch {}
+    window.location.reload()
+  }
+
+  async function openFilesModal() {
+    setFilesOpen(true)
+    if (filesData) return
+    setFilesLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/files`)
+      const data = await readJsonOrThrow(res)
+      setFilesData(data)
+    } catch (e) {
+      setFilesData({ error: e.message })
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
+  async function refreshFiles() {
+    setFilesLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/files`)
+      const data = await readJsonOrThrow(res)
+      setFilesData(data)
+    } catch (e) {
+      setFilesData({ error: e.message })
+    } finally {
+      setFilesLoading(false)
+    }
+  }
+
   function exportAnswerAsMd(msgIdx) {
     if (!activeChat) return
     const msg = activeChat.messages[msgIdx]
@@ -957,7 +1143,7 @@ export default function HomePage() {
         body: JSON.stringify({
           question: q,
           top_k: 6,
-          route: 'auto',
+          route: llmOnly ? 'llm_only' : 'auto',
           llm_api_key: llmConfig.apiKey.trim() || undefined,
           llm_base_url: llmConfig.baseUrl.trim() || undefined,
           llm_model: llmConfig.model.trim() || undefined
@@ -1038,8 +1224,15 @@ export default function HomePage() {
   }
 
   return (
-    <main className={`${styles.page} ${presentMode ? styles.presentMode : ''}`}>
+    <main className={styles.page}>
       <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <FilesModal
+        open={filesOpen}
+        loading={filesLoading}
+        data={filesData}
+        onClose={() => setFilesOpen(false)}
+        onRefresh={refreshFiles}
+      />
       <div className={styles.app}>
         <aside className={styles.sidebar}>
           <div className={styles.sideTop}>
@@ -1060,26 +1253,36 @@ export default function HomePage() {
           </div>
 
           <div className={`${styles.sidebarBody} ${sidebarOpen ? styles.sidebarBodyOpen : ''}`}>
-            <div className={styles.sideSectionTitle}>最近对话</div>
+            <div className={styles.sideSectionTitle}>对话历史</div>
             <ul className={styles.chatList}>
               {chats.map((chat) => (
-                <li key={chat.id} className={styles.chatItemWrap}>
+                <li
+                  key={chat.id}
+                  className={`${styles.chatItemWrap} ${chat.id === activeChat?.id ? styles.chatItemWrapActive : ''}`}
+                >
                   <button
-                    className={`${styles.chatItem} ${chat.id === activeChat?.id ? styles.chatItemActive : ''}`}
+                    className={styles.chatItem}
                     onClick={() => setActiveChatId(chat.id)}
+                    title={chat.title}
                   >
-                    {chat.title}
+                    <span className={styles.chatItemTitle}>{chat.title}</span>
                   </button>
                   <button
                     className={styles.chatDeleteBtn}
                     onClick={(e) => { e.stopPropagation(); deleteChat(chat.id) }}
                     title="删除对话"
+                    aria-label="删除对话"
                   >
                     ×
                   </button>
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div className={styles.sidebarFoot}>
+            <div className={styles.sidebarFootLine}>本科毕业设计</div>
+            <div className={styles.sidebarFootDim}>园艺专业 · v1.0</div>
           </div>
         </aside>
 
@@ -1088,27 +1291,31 @@ export default function HomePage() {
           <input ref={geneInputRef} type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" hidden onChange={uploadGenes} />
 
           <header className={`${styles.topBar} ${threadHasMessages ? styles.topBarCompact : ''}`}>
-            <div className={styles.heroOrnamentA} />
-            <div className={styles.heroOrnamentB} />
-            <div className={styles.heroLeaf} />
             <div className={styles.topTitleBlock}>
-              <div className={styles.eyebrow}>园艺专业本科毕业设计 · Apple Breeding RAG</div>
+              <div className={styles.eyebrow}>本科毕业设计 · APPLE BREEDING RAG</div>
               <h1 className={`${styles.heroTitle} ${threadHasMessages ? styles.heroTitleCompact : ''}`}>
-                {threadHasMessages ? activeChat?.title || 'Research Session' : '面向苹果育种的知识检索与问答工作台'}
+                {threadHasMessages ? activeChat?.title || '新的研究问题' : '苹果育种文献与基因问答'}
               </h1>
               <p className={`${styles.heroLead} ${threadHasMessages ? styles.heroLeadCompact : ''}`}>
                 {threadHasMessages
-                  ? '继续围绕这条研究线索，补充论文证据、候选基因和 trait-specific 检索结果。'
-                  : '本系统为本科毕业设计成果，面向苹果果实品质性状研究，整合论文、基因位点与性状证据，辅助快速检索和构建可追溯的育种知识链。'}
+                  ? '可以继续追问，或者换个性状、换篇论文再找一次。'
+                  : '本科毕业设计。把苹果育种领域的论文和人工整理的基因位点表合并到一个库里，能直接提问，回答全部附出处。'}
               </p>
             </div>
             <div className={styles.toolbar}>
               <button
-                className={`${styles.ghostBtn} ${presentMode ? styles.ghostBtnActive : ''}`}
-                onClick={() => setPresentMode((v) => !v)}
-                title="放大字号、强化对比，适合投屏答辩"
+                className={styles.ghostBtn}
+                onClick={openFilesModal}
+                title="看看现在库里有哪些 PDF 和基因表"
               >
-                {presentMode ? '✓ 演示模式' : '演示模式'}
+                文件夹
+              </button>
+              <button
+                className={styles.ghostBtn}
+                onClick={clearLocalCache}
+                title="清掉浏览器里存的对话和 LLM 配置"
+              >
+                刷新缓存
               </button>
               <button
                 className={styles.ghostBtn}
@@ -1183,7 +1390,7 @@ export default function HomePage() {
                 </div>
               </div>
               <p className={styles.tip}>
-                设计上把“上传追加”和“全量重建”分开，是因为它们对应两种完全不同的后端行为：前者是增量加入，后者是替换整个 collection。
+                上传是把新文件追加进当前库；全量重建会把对应 collection 整个清掉、按本地文件重新跑一遍。两件事不要搞混。
               </p>
             </section>
           )}
@@ -1265,7 +1472,7 @@ export default function HomePage() {
                             <>
                               {tldr && (
                                 <div className={styles.tldrCallout}>
-                                  <span className={styles.tldrTag}>结论</span>
+                                  <span className={styles.tldrTag} aria-label="结论" />
                                   <div className={styles.tldrText}>{parseInline(tldr, `tldr${i}`, ctx)}</div>
                                 </div>
                               )}
@@ -1278,10 +1485,16 @@ export default function HomePage() {
                         {m.role === 'assistant' && (
                           <>
                             <div className={styles.msgMetaRow}>
-                              <span className={`${styles.metaPill} ${styles.routePill}`}>route · {m.routeUsed || 'auto'}</span>
-                              <span className={`${styles.metaPill} ${styles.routePillAccent}`}>
-                                {(Array.isArray(m.sources) ? m.sources.length : 0)} 张证据卡片
-                              </span>
+                              {m.routeUsed === 'llm_only' ? (
+                                <span className={`${styles.metaPill} ${styles.routePillBare}`}>纯模型 · 无 RAG</span>
+                              ) : (
+                                <>
+                                  <span className={`${styles.metaPill} ${styles.routePill}`}>route · {m.routeUsed || 'auto'}</span>
+                                  <span className={`${styles.metaPill} ${styles.routePillAccent}`}>
+                                    {(Array.isArray(m.sources) ? m.sources.length : 0)} 张证据卡片
+                                  </span>
+                                </>
+                              )}
                             </div>
                             {Array.isArray(m.sources) && m.sources.length > 0 && (
                               <details id={`msg-${i}-details`} className={styles.evidenceBox} open={i === lastAssistantIdx}>
@@ -1358,7 +1571,17 @@ export default function HomePage() {
               />
               <div className={styles.composerFooter}>
                 <div className={styles.composerMeta}>
-                  <span className={styles.metaPill}>自动路由</span>
+                  <button
+                    type="button"
+                    className={`${styles.modePill} ${llmOnly ? styles.modePillBare : styles.modePillRag}`}
+                    onClick={() => setLlmOnly((v) => !v)}
+                    title={llmOnly
+                      ? '当前：仅大模型直答（不查论文与基因表）。点击切回 RAG。'
+                      : '当前：RAG 检索 + 大模型生成。点击切到纯模型对照模式。'}
+                  >
+                    <span className={styles.modePillDot} />
+                    {llmOnly ? '纯模型 · 无 RAG' : 'RAG · 自动路由'}
+                  </button>
                   <span className={styles.metaPill}>{geneTargetDisplay(geneTarget)}</span>
                   <span className={styles.metaPill}>{llmConfig.apiKey ? '大模型已配置' : '未配置大模型'}</span>
                 </div>
