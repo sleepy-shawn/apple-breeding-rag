@@ -1059,3 +1059,545 @@
   .askBtn { min-width: 80px; }
   .msg { max-width: 100%; }
 }
+
+/* ── Stats strip (empty hero) ─────────────────────────────────────────── */
+.statsStrip {
+  width: min(900px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.statCard {
+  border: 1px solid rgba(133, 148, 43, 0.14);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 245, 226, 0.78));
+  border-radius: 20px;
+  padding: 18px 14px;
+  text-align: center;
+  box-shadow: 0 12px 28px rgba(99, 118, 36, 0.06);
+}
+
+.statValue {
+  font-family: "Baskerville", "Iowan Old Style", "Songti SC", serif;
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1;
+  background: linear-gradient(135deg, #6d7e27, #d8b144);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.statLabel {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: #7c855a;
+}
+
+/* ── Architecture strip ────────────────────────────────────────────────── */
+.archStrip {
+  width: min(960px, 100%);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 16px;
+  border: 1px dashed rgba(133, 148, 43, 0.24);
+  border-radius: 24px;
+  background: rgba(255, 253, 246, 0.6);
+}
+
+.archGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.archGroup:last-child { flex: 0 0 auto; }
+
+.archNode {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(133, 148, 43, 0.12);
+  min-width: 0;
+}
+
+.archIcon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.archLabel {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #4f5a26;
+  text-align: center;
+  white-space: pre-line;
+  font-weight: 600;
+}
+
+.archArrow {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: #b6a14a;
+  font-weight: 700;
+  align-self: center;
+}
+
+/* ── Highlight grid ────────────────────────────────────────────────────── */
+.highlightGrid {
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.highlightCard {
+  border: 1px solid rgba(133, 148, 43, 0.14);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.highlightCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px rgba(99, 118, 36, 0.1);
+}
+
+.highlightIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.highlightTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #354118;
+}
+
+.highlightDesc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: #6b754c;
+}
+
+.quickRowLabel {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a925b;
+}
+
+/* ── Pipeline loader ──────────────────────────────────────────────────── */
+.msgLoader {
+  min-width: min(640px, 90%);
+}
+
+.pipeline {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 2px 2px;
+}
+
+.pipelineStep {
+  flex: 1;
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: center;
+  opacity: 0.45;
+  transition: opacity 200ms ease;
+}
+
+.pipelineStepDone { opacity: 0.85; }
+
+.pipelineStepCurrent {
+  opacity: 1;
+}
+
+.pipelineDot {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #6d7747;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(133, 148, 43, 0.2);
+  transition: background 200ms ease, color 200ms ease, transform 200ms ease;
+}
+
+.pipelineStepDone .pipelineDot {
+  background: linear-gradient(135deg, #6d7e27, #92aa3d);
+  color: #fffdf6;
+  border-color: transparent;
+}
+
+.pipelineStepCurrent .pipelineDot {
+  background: linear-gradient(135deg, #e3b93f, #b08a1c);
+  color: #fffdf6;
+  border-color: transparent;
+  transform: scale(1.08);
+  box-shadow: 0 0 0 4px rgba(227, 185, 63, 0.18);
+  animation: pulseDot 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(227, 185, 63, 0.18); }
+  50% { box-shadow: 0 0 0 8px rgba(227, 185, 63, 0.06); }
+}
+
+.pipelineText {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pipelineLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #37411f;
+}
+
+.pipelineSub {
+  font-size: 11px;
+  color: #7c855a;
+}
+
+.pipelineRail {
+  position: absolute;
+  left: 38px;
+  right: -4px;
+  top: 16px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(133, 148, 43, 0.18), rgba(133, 148, 43, 0.04));
+  z-index: -1;
+}
+
+.pipelineStepDone .pipelineRail {
+  background: linear-gradient(90deg, rgba(146, 170, 61, 0.6), rgba(133, 148, 43, 0.2));
+}
+
+/* ── Evidence chips (chr / pvalue) ─────────────────────────────────────── */
+.evidenceChr {
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  line-height: 1;
+  background: linear-gradient(135deg, rgba(143, 169, 59, 0.18), rgba(236, 194, 74, 0.18));
+  color: #5b6b1d;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.evidencePvalue {
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  line-height: 1;
+  background: rgba(167, 80, 41, 0.1);
+  color: #8b421f;
+  font-weight: 700;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+}
+
+/* ── About modal ──────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 45, 18, 0.42);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 24px;
+  animation: overlayIn 160ms ease-out;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modalCard {
+  position: relative;
+  width: min(680px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background-color: #fdfaf0;
+  background-image:
+    radial-gradient(circle at top right, rgba(236, 194, 74, 0.18), transparent 55%),
+    linear-gradient(180deg, rgba(255, 253, 245, 1), rgba(252, 250, 238, 1));
+  border: 1px solid rgba(133, 148, 43, 0.22);
+  border-radius: 28px;
+  padding: 28px 32px 24px;
+  box-shadow: 0 40px 100px rgba(48, 54, 18, 0.32);
+  animation: modalIn 200ms ease-out;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modalClose {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid rgba(133, 148, 43, 0.16);
+  background: rgba(255, 255, 255, 0.8);
+  color: #6d7747;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.modalClose:hover {
+  background: rgba(161, 73, 37, 0.1);
+  color: #a14925;
+}
+
+.modalEyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #8a925b;
+}
+
+.modalTitle {
+  margin: 4px 0 10px;
+  font-family: "Baskerville", "Iowan Old Style", "Songti SC", serif;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: #2d3119;
+  font-weight: 600;
+}
+
+.modalLead {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #5d6735;
+}
+
+.modalSection {
+  margin-top: 16px;
+}
+
+.modalSectionTitle {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7e8852;
+  margin-bottom: 8px;
+}
+
+.modalChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.modalChip {
+  border: 1px solid rgba(133, 148, 43, 0.16);
+  background: rgba(255, 255, 255, 0.78);
+  color: #4f5d20;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.modalList {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.modalList li {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #4f5824;
+}
+
+.modalFoot {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(133, 148, 43, 0.2);
+  font-size: 11px;
+  color: #8a925b;
+  text-align: center;
+  letter-spacing: 0.06em;
+}
+
+/* ── Presentation mode (投屏放大) ──────────────────────────────────────── */
+.presentMode {
+  font-size: 17px;
+}
+
+.presentMode .heroTitle { font-size: clamp(42px, 4.4vw, 72px); }
+.presentMode .emptyTitle { font-size: clamp(38px, 4.4vw, 70px); }
+.presentMode .heroLead, .presentMode .emptyBody { font-size: 20px; }
+.presentMode .markdownContent { font-size: 17px; line-height: 1.85; }
+.presentMode .textarea { font-size: 18px; }
+.presentMode .quickChip,
+.presentMode .composerQuickChip { font-size: 14px; padding: 12px 18px; }
+.presentMode .statValue { font-size: 46px; }
+.presentMode .pipelineLabel { font-size: 15px; }
+.presentMode .pipelineSub { font-size: 13px; }
+.presentMode .copyBtn { opacity: 1; font-size: 13px; padding: 6px 12px; }
+.presentMode .askBtn { font-size: 16px; height: 48px; min-width: 120px; }
+.presentMode .evidenceTitle { font-size: 17px; }
+.presentMode .evidenceBox { font-size: 14px; }
+.presentMode .msg { max-width: min(960px, 92%); }
+
+@media (max-width: 920px) {
+  .statsStrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .highlightGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .archStrip { flex-wrap: wrap; }
+  .archGroup { min-width: 45%; }
+  .pipeline { flex-direction: column; gap: 10px; }
+  .pipelineRail { display: none; }
+}
+
+/* ── TL;DR callout（答案领句） ────────────────────────────────────────── */
+.tldrCallout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 4px 0 14px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(167, 136, 31, 0.22);
+  background:
+    linear-gradient(135deg, rgba(245, 220, 130, 0.22), rgba(199, 220, 140, 0.16));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.tldrTag {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  background: linear-gradient(135deg, #b08a1c, #d8b144);
+  color: #fffdf2;
+  text-transform: uppercase;
+}
+
+.tldrText {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.65;
+  color: #3a3818;
+  font-family: "Baskerville", "Iowan Old Style", "Songti SC", serif;
+}
+
+/* ── Citation chip（[1] 可点击跳转） ──────────────────────────────────── */
+.citationChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  margin: 0 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 113, 33, 0.32);
+  background: linear-gradient(135deg, rgba(236, 194, 74, 0.22), rgba(196, 161, 50, 0.16));
+  color: #6e5817;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: 1px;
+  transition: background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.citationChip:hover {
+  background: linear-gradient(135deg, rgba(236, 194, 74, 0.4), rgba(196, 161, 50, 0.3));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(180, 144, 40, 0.18);
+}
+
+/* ── Gene / 染色体 inline chip ────────────────────────────────────────── */
+.geneChip {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 1px;
+  border-radius: 6px;
+  background: rgba(133, 148, 43, 0.12);
+  color: #4f5c1d;
+  font-weight: 700;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  font-size: 0.92em;
+  letter-spacing: 0.01em;
+}
+
+.chrChip {
+  display: inline-block;
+  padding: 1px 7px;
+  margin: 0 1px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(184, 130, 56, 0.18), rgba(236, 194, 74, 0.18));
+  color: #7a5821;
+  font-weight: 700;
+  font-family: "SF Mono", "Cascadia Code", "Consolas", monospace;
+  font-size: 0.9em;
+}
+
+/* ── 跳转高亮闪动 ─────────────────────────────────────────────────────── */
+.evidenceItemFlash {
+  animation: evidenceFlash 1.6s ease-out;
+}
+
+@keyframes evidenceFlash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(236, 194, 74, 0.55), 0 14px 32px rgba(180, 144, 40, 0.2);
+    background: linear-gradient(180deg, rgba(255, 250, 224, 1), rgba(252, 245, 210, 0.92));
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgba(236, 194, 74, 0.12), 0 14px 32px rgba(180, 144, 40, 0.12);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(236, 194, 74, 0);
+  }
+}
+
+/* 段落呼吸（让多段叙述更易扫读） */
+.markdownContent .mdP { margin: 0.7em 0; }
+.markdownContent .mdP + .mdP { margin-top: 0.85em; }
+.markdownContent { max-width: 70ch; }
+
+.presentMode .markdownContent { max-width: 78ch; }
+.presentMode .tldrText { font-size: 18px; }
+.presentMode .citationChip { min-width: 26px; height: 24px; font-size: 13px; }

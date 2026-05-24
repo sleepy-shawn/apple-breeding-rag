@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './page.module.css'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000'
 const INITIAL_CHAT = mkChat()
 const LLM_STORAGE_KEY = 'apple-breeding-rag-llm-config'
 const CHATS_STORAGE_KEY = 'apple-breeding-rag-chats'
@@ -444,38 +444,84 @@ function EvidenceCardBody({ source }) {
 }
 
 // ── Markdown renderer ──────────────────────────────────────────────────────
-function parseInline(text, prefix = '') {
+const GENE_PATTERN = /\b(Md[A-Z][A-Za-z0-9-]*|Ma\d+|MdMYB\d+|MdNAC\d+|MdEXP[-A-Z0-9]*|MdALMT\d+|MdPG\d*|MdACS\d*|MdACO\d*)\b/
+const CHR_PATTERN = /\bChr\s?\d+[A-Za-z]?\b/
+
+function jumpToCitation(ctx, n) {
+  if (!ctx) return
+  const { articleId, sourceCount } = ctx
+  if (!articleId || !n || n < 1 || (sourceCount && n > sourceCount)) return
+  const details = document.getElementById(`${articleId}-details`)
+  if (details && !details.open) details.open = true
+  // 等下一帧 details 展开
+  requestAnimationFrame(() => {
+    const target = document.getElementById(`${articleId}-src-${n - 1}`)
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target.classList.add(styles.evidenceItemFlash)
+    setTimeout(() => target.classList.remove(styles.evidenceItemFlash), 1600)
+  })
+}
+
+function parseInline(text, prefix = '', ctx = null) {
   const out = []
   let rem = text
   let k = 0
 
   while (rem.length) {
-    // bold **...**
-    const b = rem.match(/\*\*(.+?)\*\*/)
-    // italic *...*
-    const it = rem.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/)
-    // inline code `...`
-    const ic = rem.match(/`([^`]+)`/)
-
     const candidates = [
-      b && { type: 'b', m: b },
-      it && { type: 'i', m: it },
-      ic && { type: 'c', m: ic }
-    ].filter(Boolean).sort((a, b2) => a.m.index - b2.m.index)
+      matchAndWrap(rem, /\*\*(.+?)\*\*/, 'b'),
+      matchAndWrap(rem, /(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/, 'i'),
+      matchAndWrap(rem, /`([^`]+)`/, 'c'),
+      ctx && matchAndWrap(rem, /\[(\d+)\]/, 'cite'),
+      matchAndWrap(rem, GENE_PATTERN, 'gene'),
+      matchAndWrap(rem, CHR_PATTERN, 'chr')
+    ].filter(Boolean).sort((a, b) => a.m.index - b.m.index)
 
     if (!candidates.length) { out.push(rem); break }
-
     const { type, m } = candidates[0]
     if (m.index > 0) out.push(rem.slice(0, m.index))
+
     if (type === 'b') out.push(<strong key={`${prefix}b${k++}`}>{m[1]}</strong>)
     else if (type === 'i') out.push(<em key={`${prefix}i${k++}`}>{m[1]}</em>)
-    else out.push(<code key={`${prefix}c${k++}`} className={styles.mdCode}>{m[1]}</code>)
+    else if (type === 'c') out.push(<code key={`${prefix}c${k++}`} className={styles.mdCode}>{m[1]}</code>)
+    else if (type === 'cite') {
+      const n = parseInt(m[1], 10)
+      out.push(
+        <button
+          key={`${prefix}cite${k++}`}
+          type="button"
+          className={styles.citationChip}
+          onClick={() => jumpToCitation(ctx, n)}
+          title={`查看第 ${n} 条证据`}
+        >
+          {n}
+        </button>
+      )
+    } else if (type === 'gene') {
+      out.push(<span key={`${prefix}g${k++}`} className={styles.geneChip}>{m[0]}</span>)
+    } else if (type === 'chr') {
+      out.push(<span key={`${prefix}chr${k++}`} className={styles.chrChip}>{m[0]}</span>)
+    }
     rem = rem.slice(m.index + m[0].length)
   }
   return out
 }
 
-function MarkdownBlock({ text }) {
+function matchAndWrap(rem, regex, type) {
+  const m = rem.match(regex)
+  return m ? { type, m } : null
+}
+
+// 抽出答案最开头的 "**结论：**…" 作为 TL;DR
+function extractTldr(text) {
+  if (!text) return { tldr: null, body: text || '' }
+  const m = text.match(/^\s*\*\*结论[:：]\*\*\s*([^\n]+?)(?:\n|$)/)
+  if (!m) return { tldr: null, body: text }
+  return { tldr: m[1].trim().replace(/[。.\s]+$/, ''), body: text.slice(m[0].length).replace(/^\s+/, '') }
+}
+
+function MarkdownBlock({ text, ctx = null }) {
   const lines = (text || '').split('\n')
   const els = []
   let i = 0
@@ -502,7 +548,7 @@ function MarkdownBlock({ text }) {
     if (hm) {
       const lvl = hm[1].length
       const Tag = ['h2', 'h3', 'h4', 'h5'][lvl - 1] || 'h5'
-      els.push(<Tag key={k++} className={styles[`mdH${lvl}`]}>{parseInline(hm[2], `h${k}`)}</Tag>)
+      els.push(<Tag key={k++} className={styles[`mdH${lvl}`]}>{parseInline(hm[2], `h${k}`, ctx)}</Tag>)
       i++
       continue
     }
@@ -523,7 +569,7 @@ function MarkdownBlock({ text }) {
       }
       els.push(
         <blockquote key={k++} className={styles.mdBlockquote}>
-          {ql.map((l, j) => <p key={j}>{parseInline(l, `bq${j}`)}</p>)}
+          {ql.map((l, j) => <p key={j}>{parseInline(l, `bq${j}`, ctx)}</p>)}
         </blockquote>
       )
       continue
@@ -533,7 +579,7 @@ function MarkdownBlock({ text }) {
     if (/^[-*+]\s/.test(line)) {
       const items = []
       while (i < lines.length && /^[-*+]\s/.test(lines[i])) {
-        items.push(<li key={i}>{parseInline(lines[i].replace(/^[-*+]\s+/, ''), `ul${i}`)}</li>)
+        items.push(<li key={i}>{parseInline(lines[i].replace(/^[-*+]\s+/, ''), `ul${i}`, ctx)}</li>)
         i++
       }
       els.push(<ul key={k++} className={styles.mdUl}>{items}</ul>)
@@ -544,7 +590,7 @@ function MarkdownBlock({ text }) {
     if (/^\d+\.\s/.test(line)) {
       const items = []
       while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(<li key={i}>{parseInline(lines[i].replace(/^\d+\.\s+/, ''), `ol${i}`)}</li>)
+        items.push(<li key={i}>{parseInline(lines[i].replace(/^\d+\.\s+/, ''), `ol${i}`, ctx)}</li>)
         i++
       }
       els.push(<ol key={k++} className={styles.mdOl}>{items}</ol>)
@@ -555,13 +601,181 @@ function MarkdownBlock({ text }) {
     if (!line.trim()) { i++; continue }
 
     // paragraph
-    els.push(<p key={k++} className={styles.mdP}>{parseInline(line, `p${k}`)}</p>)
+    els.push(<p key={k++} className={styles.mdP}>{parseInline(line, `p${k}`, ctx)}</p>)
     i++
   }
 
   return <div className={styles.markdownContent}>{els}</div>
 }
 // ──────────────────────────────────────────────────────────────────────────
+
+// ── Pipeline loader (presentation-friendly RAG visualization) ─────────────
+const PIPELINE_STEPS = [
+  { key: 'parse', label: '解析问题', sub: '路由判定 · 关键词提取' },
+  { key: 'retrieve', label: '向量检索', sub: 'Milvus · top-K 召回' },
+  { key: 'rerank', label: '汇总证据', sub: '论文片段 + 候选基因' },
+  { key: 'generate', label: 'LLM 生成', sub: '带引用的回答' }
+]
+
+function PipelineLoader() {
+  const [stage, setStage] = useState(0)
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStage(1), 450),
+      setTimeout(() => setStage(2), 1100),
+      setTimeout(() => setStage(3), 2000)
+    ]
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  return (
+    <div className={styles.pipeline}>
+      {PIPELINE_STEPS.map((s, i) => {
+        const done = i < stage
+        const current = i === stage
+        const cls = [
+          styles.pipelineStep,
+          done && styles.pipelineStepDone,
+          current && styles.pipelineStepCurrent
+        ].filter(Boolean).join(' ')
+        return (
+          <div key={s.key} className={cls}>
+            <div className={styles.pipelineDot}>
+              {done ? '✓' : i + 1}
+            </div>
+            <div className={styles.pipelineText}>
+              <div className={styles.pipelineLabel}>{s.label}</div>
+              <div className={styles.pipelineSub}>{s.sub}</div>
+            </div>
+            {i < PIPELINE_STEPS.length - 1 && <div className={styles.pipelineRail} />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Empty state hero (project highlights + arch diagram + stats) ──────────
+const HIGHLIGHTS = [
+  { icon: '📚', title: '文献 + 基因双库', desc: '苹果育种领域 75 篇论文与 6 个性状基因表统一入库' },
+  { icon: '🧭', title: '智能路由', desc: '按问题自动选择论文库 / 基因库 / 混合检索路径' },
+  { icon: '🔗', title: '可追溯证据', desc: '每条回答附 source 卡片，可见基因/SNP/染色体/P 值' },
+  { icon: '🌐', title: '可替换大模型', desc: '前端配置 DeepSeek / 兼容 OpenAI API 的任意模型' }
+]
+
+const STATS = [
+  { value: '75', label: '苹果育种文献' },
+  { value: '6', label: '性状基因库' },
+  { value: 'RAG', label: '检索增强生成' },
+  { value: '100%', label: '引用可追溯' }
+]
+
+const ARCH_NODES = [
+  { icon: '📄', label: '论文 PDF\n基因表 CSV' },
+  { icon: '🧬', label: '嵌入向量\nMilvus 索引' },
+  { icon: '🔍', label: '智能路由\n分库检索' },
+  { icon: '✦', label: '大模型生成\n带引用回答' }
+]
+
+function EmptyHero({ onPickPrompt }) {
+  return (
+    <div className={styles.emptyState}>
+      <div className={styles.emptyBadge}>苹果育种助手 · 本科毕业设计</div>
+      <div className={styles.emptyTitle}>从文献、基因与性状证据中，构建可追溯的育种知识链</div>
+      <div className={styles.emptyBody}>
+        整合苹果育种领域论文与候选基因数据库，结合检索增强生成（RAG）技术，针对果实品质性状（硬度、颜色、酸度、糖度、采收期）提供可追溯的问答与证据支持。
+      </div>
+
+      <div className={styles.statsStrip}>
+        {STATS.map((s) => (
+          <div key={s.label} className={styles.statCard}>
+            <div className={styles.statValue}>{s.value}</div>
+            <div className={styles.statLabel}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.archStrip}>
+        {ARCH_NODES.map((n, i) => (
+          <div key={n.label} className={styles.archGroup}>
+            <div className={styles.archNode}>
+              <div className={styles.archIcon}>{n.icon}</div>
+              <div className={styles.archLabel}>{n.label}</div>
+            </div>
+            {i < ARCH_NODES.length - 1 && <div className={styles.archArrow}>→</div>}
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.highlightGrid}>
+        {HIGHLIGHTS.map((h) => (
+          <div key={h.title} className={styles.highlightCard}>
+            <div className={styles.highlightIcon}>{h.icon}</div>
+            <div className={styles.highlightTitle}>{h.title}</div>
+            <div className={styles.highlightDesc}>{h.desc}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.quickRowLabel}>试试这些问题</div>
+      <div className={styles.quickRow}>
+        {QUICK_PROMPTS.map((prompt) => (
+          <button key={prompt} className={styles.quickChip} onClick={() => onPickPrompt(prompt)}>
+            {prompt}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── About modal ───────────────────────────────────────────────────────────
+function AboutModal({ open, onClose }) {
+  if (!open) return null
+  return (
+    <div className={styles.modalOverlay} onClick={onClose}>
+      <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+        <button className={styles.modalClose} onClick={onClose} aria-label="关闭">×</button>
+        <div className={styles.modalEyebrow}>About</div>
+        <h2 className={styles.modalTitle}>Apple Breeding RAG</h2>
+        <p className={styles.modalLead}>
+          面向苹果育种科研场景的检索增强问答系统，本科毕业设计成果。聚焦苹果果实品质性状的文献查询与候选基因证据整合。
+        </p>
+
+        <div className={styles.modalSection}>
+          <div className={styles.modalSectionTitle}>技术栈</div>
+          <div className={styles.modalChips}>
+            <span className={styles.modalChip}>Next.js 14</span>
+            <span className={styles.modalChip}>FastAPI</span>
+            <span className={styles.modalChip}>Milvus 向量库</span>
+            <span className={styles.modalChip}>BGE Embeddings</span>
+            <span className={styles.modalChip}>DeepSeek / OpenAI 兼容</span>
+            <span className={styles.modalChip}>Docker Compose</span>
+          </div>
+        </div>
+
+        <div className={styles.modalSection}>
+          <div className={styles.modalSectionTitle}>数据范围</div>
+          <ul className={styles.modalList}>
+            <li>苹果育种相关论文 75 篇（涵盖 GWAS、QTL、候选基因功能验证）</li>
+            <li>6 个性状基因库：硬度、颜色、酸度、糖度、采收期、通用</li>
+            <li>人工整理证据条目（性状 / 基因 / SNP / 染色体 / P 值）</li>
+          </ul>
+        </div>
+
+        <div className={styles.modalSection}>
+          <div className={styles.modalSectionTitle}>系统能力</div>
+          <ul className={styles.modalList}>
+            <li>问题智能路由：自动判定走论文库、基因库或混合检索</li>
+            <li>引用可追溯：每条回答附 source 卡片，可见出处、染色体、统计量</li>
+            <li>支持上传新文献与基因表，可全量重建索引</li>
+          </ul>
+        </div>
+
+        <div className={styles.modalFoot}>本科毕业设计成果 · 仅供学术与教学用途</div>
+      </div>
+    </div>
+  )
+}
 
 export default function HomePage() {
   const [question, setQuestion] = useState('')
@@ -574,6 +788,8 @@ export default function HomePage() {
   const [opLoading, setOpLoading] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [dataToolsOpen, setDataToolsOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [presentMode, setPresentMode] = useState(false)
   const [geneTarget, setGeneTarget] = useState('genes')
   const [llmConfig, setLlmConfig] = useState({
     apiKey: '',
@@ -667,6 +883,48 @@ export default function HomePage() {
       setCopiedIdx(idx)
       setTimeout(() => setCopiedIdx(null), 2000)
     }).catch(() => {})
+  }
+
+  function exportAnswerAsMd(msgIdx) {
+    if (!activeChat) return
+    const msg = activeChat.messages[msgIdx]
+    if (!msg || msg.role !== 'assistant') return
+    const userPrev = activeChat.messages[msgIdx - 1]
+    const lines = []
+    lines.push(`# ${activeChat.title || 'Apple Breeding RAG'}`)
+    lines.push('')
+    lines.push(`> 导出时间：${new Date().toLocaleString('zh-CN')}`)
+    lines.push(`> 路由：${msg.routeUsed || 'auto'}`)
+    lines.push('')
+    if (userPrev?.role === 'user') {
+      lines.push('## 提问')
+      lines.push('')
+      lines.push(userPrev.text)
+      lines.push('')
+    }
+    lines.push('## 回答')
+    lines.push('')
+    lines.push(msg.text || '')
+    lines.push('')
+    if (Array.isArray(msg.sources) && msg.sources.length) {
+      lines.push('## 引用与证据')
+      lines.push('')
+      msg.sources.forEach((s, i) => {
+        lines.push(`### [${i + 1}] ${sourceTypeDisplay(s.source_type)}${s.title ? ` — ${s.title}` : ''}`)
+        if (s.page) lines.push(`- 页码：p.${s.page}`)
+        lines.push('')
+        lines.push(s.chunk_text || '')
+        lines.push('')
+      })
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const safe = (activeChat.title || 'answer').replace(/[\\/:*?"<>|]/g, '_')
+    a.download = `${safe}-${msgIdx + 1}.md`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function readJsonOrThrow(res) {
@@ -780,7 +1038,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className={styles.page}>
+    <main className={`${styles.page} ${presentMode ? styles.presentMode : ''}`}>
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
       <div className={styles.app}>
         <aside className={styles.sidebar}>
           <div className={styles.sideTop}>
@@ -844,6 +1103,20 @@ export default function HomePage() {
               </p>
             </div>
             <div className={styles.toolbar}>
+              <button
+                className={`${styles.ghostBtn} ${presentMode ? styles.ghostBtnActive : ''}`}
+                onClick={() => setPresentMode((v) => !v)}
+                title="放大字号、强化对比，适合投屏答辩"
+              >
+                {presentMode ? '✓ 演示模式' : '演示模式'}
+              </button>
+              <button
+                className={styles.ghostBtn}
+                onClick={() => setAboutOpen(true)}
+                title="关于本项目"
+              >
+                关于
+              </button>
               <button
                 className={`${styles.ghostBtn} ${dataToolsOpen ? styles.ghostBtnActive : ''}`}
                 onClick={() => { setDataToolsOpen((v) => !v); setSettingsOpen(false) }}
@@ -958,81 +1231,100 @@ export default function HomePage() {
             <div className={styles.thread} ref={threadRef}>
               {threadHasMessages ? (
                 <>
-                  {activeChat.messages.map((m, i) => (
-                    <article key={i} className={`${styles.msg} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
-                      <div className={styles.msgHeader}>
-                        <div className={styles.msgRole}>{m.role === 'user' ? '你' : '助手'}</div>
-                        <div className={styles.msgHeaderRight}>
-                          {m.role === 'assistant' && (
-                            <button className={styles.copyBtn} onClick={() => copyToClipboard(m.text, i)} title="复制回答">
-                              {copiedIdx === i ? '已复制' : '复制'}
-                            </button>
-                          )}
-                          {m.role === 'assistant' && <div className={styles.msgBadge}>Research Response</div>}
-                        </div>
-                      </div>
-                      {m.role === 'assistant' ? (
-                        <MarkdownBlock text={m.text} />
-                      ) : (
-                        <div className={styles.msgTextUser}>{m.text}</div>
-                      )}
-                      {m.role === 'assistant' && (
-                        <>
-                          <div className={styles.msgMetaRow}>
-                            <span className={`${styles.metaPill} ${styles.routePill}`}>route · {m.routeUsed || 'auto'}</span>
-                            <span className={`${styles.metaPill} ${styles.routePillAccent}`}>
-                              {(Array.isArray(m.sources) ? m.sources.length : 0)} 张证据卡片
-                            </span>
+                  {(() => {
+                    const lastAssistantIdx = (() => {
+                      for (let j = activeChat.messages.length - 1; j >= 0; j--) {
+                        if (activeChat.messages[j].role === 'assistant') return j
+                      }
+                      return -1
+                    })()
+                    return activeChat.messages.map((m, i) => (
+                      <article key={i} className={`${styles.msg} ${m.role === 'user' ? styles.msgUser : styles.msgAssistant}`}>
+                        <div className={styles.msgHeader}>
+                          <div className={styles.msgRole}>{m.role === 'user' ? '你' : '助手'}</div>
+                          <div className={styles.msgHeaderRight}>
+                            {m.role === 'assistant' && (
+                              <>
+                                <button className={styles.copyBtn} onClick={() => copyToClipboard(m.text, i)} title="复制回答">
+                                  {copiedIdx === i ? '已复制' : '复制'}
+                                </button>
+                                <button className={styles.copyBtn} onClick={() => exportAnswerAsMd(i)} title="导出为 Markdown">
+                                  导出 .md
+                                </button>
+                              </>
+                            )}
+                            {m.role === 'assistant' && <div className={styles.msgBadge}>Research Response</div>}
                           </div>
-                          {Array.isArray(m.sources) && m.sources.length > 0 && (
-                            <details className={styles.evidenceBox}>
-                              <summary className={styles.evidenceSummary}>
-                                <span>查看引用与证据卡片</span>
-                                <span className={styles.evidenceSummaryCount}>{m.sources.length}</span>
-                              </summary>
-                              <ul className={styles.evidenceList}>
-                                {m.sources.map((s, idx) => (
-                                  <li key={idx} className={styles.evidenceItem}>
-                                    <div className={styles.evidenceHead}>
-                                      <span className={styles.evidenceIndex}>[{idx + 1}]</span>
-                                      <span className={styles.evidenceType}>{sourceTypeDisplay(s.source_type)}</span>
-                                      {s.page ? <span className={styles.evidenceMeta}>p.{s.page}</span> : null}
-                                    </div>
-                                    {s.title ? <div className={styles.evidenceTitle}>{s.title}</div> : null}
-                                    <EvidenceCardBody source={s} />
-                                  </li>
-                                ))}
-                              </ul>
-                            </details>
-                          )}
-                        </>
-                      )}
-                    </article>
-                  ))}
+                        </div>
+                        {m.role === 'assistant' ? (() => {
+                          const sourceCount = Array.isArray(m.sources) ? m.sources.length : 0
+                          const articleId = `msg-${i}`
+                          const ctx = { articleId, sourceCount }
+                          const { tldr, body } = extractTldr(m.text)
+                          return (
+                            <>
+                              {tldr && (
+                                <div className={styles.tldrCallout}>
+                                  <span className={styles.tldrTag}>结论</span>
+                                  <div className={styles.tldrText}>{parseInline(tldr, `tldr${i}`, ctx)}</div>
+                                </div>
+                              )}
+                              <MarkdownBlock text={body} ctx={ctx} />
+                            </>
+                          )
+                        })() : (
+                          <div className={styles.msgTextUser}>{m.text}</div>
+                        )}
+                        {m.role === 'assistant' && (
+                          <>
+                            <div className={styles.msgMetaRow}>
+                              <span className={`${styles.metaPill} ${styles.routePill}`}>route · {m.routeUsed || 'auto'}</span>
+                              <span className={`${styles.metaPill} ${styles.routePillAccent}`}>
+                                {(Array.isArray(m.sources) ? m.sources.length : 0)} 张证据卡片
+                              </span>
+                            </div>
+                            {Array.isArray(m.sources) && m.sources.length > 0 && (
+                              <details id={`msg-${i}-details`} className={styles.evidenceBox} open={i === lastAssistantIdx}>
+                                <summary className={styles.evidenceSummary}>
+                                  <span>查看引用与证据卡片</span>
+                                  <span className={styles.evidenceSummaryCount}>{m.sources.length}</span>
+                                </summary>
+                                <ul className={styles.evidenceList}>
+                                  {m.sources.map((s, idx) => {
+                                    const fields = parseEvidenceFields(s.chunk_text)
+                                    return (
+                                      <li key={idx} id={`msg-${i}-src-${idx}`} className={styles.evidenceItem}>
+                                        <div className={styles.evidenceHead}>
+                                          <span className={styles.evidenceIndex}>[{idx + 1}]</span>
+                                          <span className={styles.evidenceType}>{sourceTypeDisplay(s.source_type)}</span>
+                                          {fields.chr ? <span className={styles.evidenceChr}>Chr {String(fields.chr).replace(/^Chr/i, '')}</span> : null}
+                                          {fields.pvalue ? <span className={styles.evidencePvalue}>P {fields.pvalue}</span> : null}
+                                          {s.page ? <span className={styles.evidenceMeta}>p.{s.page}</span> : null}
+                                        </div>
+                                        {s.title ? <div className={styles.evidenceTitle}>{s.title}</div> : null}
+                                        <EvidenceCardBody source={s} />
+                                      </li>
+                                    )
+                                  })}
+                                </ul>
+                              </details>
+                            )}
+                          </>
+                        )}
+                      </article>
+                    ))
+                  })()}
                   {loading && (
-                    <article className={`${styles.msg} ${styles.msgAssistant}`}>
-                      <div className={styles.msgRole}>助手</div>
-                      <div className={styles.loadingDots}>
-                        <span /><span /><span />
+                    <article className={`${styles.msg} ${styles.msgAssistant} ${styles.msgLoader}`}>
+                      <div className={styles.msgHeader}>
+                        <div className={styles.msgRole}>助手 · 正在检索</div>
                       </div>
+                      <PipelineLoader />
                     </article>
                   )}
                 </>
               ) : (
-                <div className={styles.emptyState}>
-                  <div className={styles.emptyBadge}>苹果育种助手</div>
-                  <div className={styles.emptyTitle}>从文献、基因与性状证据中，构建可追溯的育种知识链</div>
-                  <div className={styles.emptyBody}>
-                    本工作台支持直接提问、PDF 文献上传和基因表检索。系统结合检索增强生成技术，返回相关文献、候选基因与证据来源，辅助苹果果实品质性状分析。
-                  </div>
-                  <div className={styles.quickRow}>
-                    {QUICK_PROMPTS.map((prompt) => (
-                      <button key={prompt} className={styles.quickChip} onClick={() => setQuestion(prompt)}>
-                        {prompt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <EmptyHero onPickPrompt={setQuestion} />
               )}
             </div>
           </div>
