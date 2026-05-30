@@ -789,7 +789,17 @@ function EmptyHero({ onPickPrompt }) {
 
 // ── About modal ───────────────────────────────────────────────────────────
 function AboutModal({ open, onClose }) {
+  const [shareUrl, setShareUrl] = useState('')
+  useEffect(() => {
+    if (typeof window !== 'undefined') setShareUrl(window.location.origin)
+  }, [open])
+
   if (!open) return null
+  const isLocalhost = /^(http:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0)/.test(shareUrl)
+  const qrSrc = shareUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=14&qzone=2&color=1F2410&bgcolor=FAF4E4&data=${encodeURIComponent(shareUrl)}`
+    : ''
+
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
       <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -799,6 +809,22 @@ function AboutModal({ open, onClose }) {
         <p className={styles.modalLead}>
           本科毕业设计。把苹果育种相关的论文和人工整理的基因表合到一个能直接问答的库里，回答都附出处，方便核对。
         </p>
+
+        {/* ── 扫码访问 ─ 放在最显眼的位置，方便答辩现场让听众扫码 ──── */}
+        <div className={styles.qrBlock}>
+          <div className={styles.qrFrame}>
+            {qrSrc && <img src={qrSrc} className={styles.qrImage} alt={`扫码访问 ${shareUrl}`} />}
+          </div>
+          <div className={styles.qrSide}>
+            <div className={styles.qrLabel}>扫码访问</div>
+            <div className={styles.qrUrl}>{shareUrl || '…'}</div>
+            <p className={styles.qrHint}>
+              {isLocalhost
+                ? '当前是本机地址，扫出来只能在这台电脑上打开。要让别人扫，请通过公网链接打开本页面，二维码会自动更新。'
+                : '手机扫一下即可在你自己设备上打开同一个演示。'}
+            </p>
+          </div>
+        </div>
 
         <div className={styles.modalSection}>
           <div className={styles.modalSectionTitle}>用到的东西</div>
@@ -993,11 +1019,19 @@ export default function HomePage() {
     el.style.height = Math.min(el.scrollHeight, 220) + 'px'
   }, [question])
 
+  // 末条 assistant 文本长度 — 流式时依此触发滚动
+  const lastMsg = activeChat?.messages?.[activeChat.messages.length - 1]
+  const lastMsgTextLen = lastMsg?.text?.length || 0
+  const lastMsgStreaming = !!lastMsg?.streaming
   useEffect(() => {
     if (!threadRef.current) return
     const node = threadRef.current
-    node.scrollTo({ top: node.scrollHeight, behavior: 'smooth' })
-  }, [activeChatId, activeChat?.messages.length, loading])
+    // 流式期间用瞬时滚动避免卡顿；切对话/收完回答时用平滑滚动
+    node.scrollTo({
+      top: node.scrollHeight,
+      behavior: lastMsgStreaming ? 'auto' : 'smooth'
+    })
+  }, [activeChatId, activeChat?.messages.length, loading, lastMsgTextLen, lastMsgStreaming])
 
   function chatsOrNew(list) { return list.length ? list : [mkChat()] }
 
@@ -1119,10 +1153,66 @@ export default function HomePage() {
     return data
   }
 
+  // 把 assistant 消息往当前 chat 末尾追加一条（增量更新用）
+  function appendAssistantMessage(chatId, initial) {
+    setActiveUpdater((prev) =>
+      prev.map((chat) =>
+        chat.id === chatId
+          ? { ...chat, messages: [...chat.messages, { role: 'assistant', ...initial }] }
+          : chat
+      )
+    )
+  }
+
+  // 改最后一条 assistant 消息的部分字段（增量 delta 累加用）
+  function updateLastAssistantMessage(chatId, patcher) {
+    setActiveUpdater((prev) =>
+      prev.map((chat) => {
+        if (chat.id !== chatId) return chat
+        if (!chat.messages.length) return chat
+        const last = chat.messages[chat.messages.length - 1]
+        if (last.role !== 'assistant') return chat
+        const next = patcher(last)
+        return { ...chat, messages: [...chat.messages.slice(0, -1), next] }
+      })
+    )
+  }
+
+  async function streamFromSSE(res, { onMeta, onDelta, onAudit }) {
+    if (!res.body) throw new Error('该浏览器不支持流式响应')
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      // 按 SSE 协议双换行分块
+      let sep
+      while ((sep = buf.indexOf('\n\n')) !== -1) {
+        const raw = buf.slice(0, sep)
+        buf = buf.slice(sep + 2)
+        if (!raw.trim()) continue
+        let evt = 'message', dataStr = ''
+        for (const line of raw.split('\n')) {
+          if (line.startsWith('event:')) evt = line.slice(6).trim()
+          else if (line.startsWith('data:')) dataStr += line.slice(5).trim()
+        }
+        let data = {}
+        try { data = dataStr ? JSON.parse(dataStr) : {} } catch {}
+        if (evt === 'meta' && onMeta) onMeta(data)
+        else if (evt === 'delta' && onDelta) onDelta(data)
+        else if (evt === 'audit' && onAudit) onAudit(data)
+        else if (evt === 'done') return
+      }
+    }
+  }
+
   async function ask(retryText) {
     const sourceText = typeof retryText === 'string' ? retryText : question
     const q = sourceText.trim()
     if (!q || !activeChat) return
+    const chatId = activeChat.id
     setQuestion('')
     setLastQuestion(q)
     setLoading(true)
@@ -1130,16 +1220,19 @@ export default function HomePage() {
 
     setActiveUpdater((prev) =>
       prev.map((chat) =>
-        chat.id === activeChat.id
+        chat.id === chatId
           ? { ...chat, title: chat.messages.length ? chat.title : trimTitle(q), messages: [...chat.messages, { role: 'user', text: q }] }
           : chat
       )
     )
 
+    // 先占位一条空 assistant，后续 delta 直接累加上去
+    appendAssistantMessage(chatId, { text: '', routeUsed: null, sources: [], streaming: true, audit: null })
+
     try {
-      const res = await fetch(`${API_BASE}/api/chat`, {
+      const res = await fetch(`${API_BASE}/api/chat/stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({
           question: q,
           top_k: 6,
@@ -1149,16 +1242,38 @@ export default function HomePage() {
           llm_model: llmConfig.model.trim() || undefined
         })
       })
-      const data = await readJsonOrThrow(res)
-      setActiveUpdater((prev) =>
-        prev.map((chat) =>
-          chat.id === activeChat.id
-            ? { ...chat, messages: [...chat.messages, { role: 'assistant', text: data.answer || '', routeUsed: data.route_used, sources: data.sources || [] }] }
-            : chat
-        )
-      )
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '')
+        throw new Error(detail || `HTTP ${res.status}`)
+      }
+
+      await streamFromSSE(res, {
+        onMeta: ({ route, sources }) => {
+          updateLastAssistantMessage(chatId, (m) => ({
+            ...m,
+            routeUsed: route || m.routeUsed,
+            sources: Array.isArray(sources) ? sources : m.sources
+          }))
+        },
+        onDelta: ({ text }) => {
+          if (!text) return
+          updateLastAssistantMessage(chatId, (m) => ({ ...m, text: (m.text || '') + text }))
+        },
+        onAudit: (audit) => {
+          updateLastAssistantMessage(chatId, (m) => ({ ...m, audit }))
+        }
+      })
+
+      // 流结束，去掉 streaming 标记
+      updateLastAssistantMessage(chatId, (m) => ({ ...m, streaming: false }))
     } catch (e) {
       setError(e.message)
+      // 流失败：删掉那条空 assistant 占位（如果还是空且 streaming）
+      updateLastAssistantMessage(chatId, (m) =>
+        m.streaming && !m.text
+          ? { ...m, streaming: false, text: '（请求失败：' + e.message + '）' }
+          : { ...m, streaming: false }
+      )
     } finally {
       setLoading(false)
     }
@@ -1468,6 +1583,10 @@ export default function HomePage() {
                           const articleId = `msg-${i}`
                           const ctx = { articleId, sourceCount }
                           const { tldr, body } = extractTldr(m.text)
+                          // 流式中且还没出字 → 显示 pipeline；有字了 → 渲染 markdown
+                          if (m.streaming && !m.text) {
+                            return <PipelineLoader />
+                          }
                           return (
                             <>
                               {tldr && (
@@ -1477,6 +1596,7 @@ export default function HomePage() {
                                 </div>
                               )}
                               <MarkdownBlock text={body} ctx={ctx} />
+                              {m.streaming && <span className={styles.streamingCursor} aria-hidden="true" />}
                             </>
                           )
                         })() : (
@@ -1527,14 +1647,7 @@ export default function HomePage() {
                       </article>
                     ))
                   })()}
-                  {loading && (
-                    <article className={`${styles.msg} ${styles.msgAssistant} ${styles.msgLoader}`}>
-                      <div className={styles.msgHeader}>
-                        <div className={styles.msgRole}>助手 · 正在检索</div>
-                      </div>
-                      <PipelineLoader />
-                    </article>
-                  )}
+                  {/* 流式期间 pipeline 直接画进 assistant 气泡里，不再单独占一行 */}
                 </>
               ) : (
                 <EmptyHero onPickPrompt={setQuestion} />

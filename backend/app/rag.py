@@ -478,6 +478,208 @@ class RagService:
         # Fallback: return top results without strict filtering
         return reranked[:top_k]
 
+    # ── Streaming variants ────────────────────────────────────────────────
+    # 精炼版 prompt — 保留所有关键约束（结论领句 / 分段 / 引用 / 基因排版），
+    # 但去掉冗余啰嗦，让 LLM 注意力更集中、首 token 更快出。
+    _STREAM_SYSTEM_PROMPT = (
+        "你是苹果（Malus domestica）育种领域的资深科研专家。仅根据用户提供的证据作答。\n"
+        "\n"
+        "输出要求：\n"
+        "1. 正文开头单独一段，用一句不超过 60 字的核心结论起头，格式为 **结论：**xxx。\n"
+        "2. 全文 3–4 段紧凑综述风格，禁用 # 标题。建议顺序：结论 → 分子机制 → 遗传/功能证据 → 品种背景或局限。\n"
+        "3. 内联引用 [1] [2] 紧跟支撑句末，全文至少 2 处。末尾单独一段附简短参考文献，每条一行，格式 [编号] 来源描述，最多 6 条。\n"
+        "4. 基因名标准化（MdNAC18、Ma1、MdMYB10）；染色体写作 Chr5、Chr15。\n"
+        "5. 品种 / 物种名用 Markdown 斜体包裹（*Honeycrisp*、*Fuji*、*Malus domestica*、*富士*）；"
+        "基因符号保留原文不要加 *，前端会自动按学术惯例渲染为斜体。\n"
+        "6. 措辞自然，区分遗传关联证据与功能实验证据时不必出现\"直接证据/间接证据\"等模板字眼。\n"
+        "7. 证据中没有的术语必须明确指出\"当前证据未直接支持\"，不要凭空补充。\n"
+        "8. 中文问题用中文回答，英文问题用英文回答。\n"
+        "\n"
+        "反幻觉硬约束（违反将被判作错误回答，必须严格遵守）：\n"
+        "A. 不要发明基因别名、locus ID、SNP 编号、突变坐标。如果证据里没出现对应字符串，宁可省略也不要补。\n"
+        "B. 描述某基因的因果突变 / 直接靶基因 / 上下游关系时，如果证据未明示，写"
+        "\"当前证据未直接说明该机制\"，不要从训练知识里凑。\n"
+        "C. 数字（p 值、QTL LOD、SNP 位置、染色体坐标）必须能在证据片段里查到原文，否则不写具体数字。\n"
+        "\n"
+        "重点事实勘误（若回答涉及以下基因，按此优先于训练知识；模型常见把它们写错）：\n"
+        "• Ma1 的公认别名仅有：Ma1、MdALMT9、MdALMTII；locus ID 为 MDP0000252114。"
+        "禁止使用文献中不存在的别名（例如 MdBEBB2 这种）。\n"
+        "• Ma1 的因果变异是 ORF 第 1455 位的 G→A 无义突变，导致蛋白 C 端截断 84 个氨基酸，"
+        "截断区域包含液泡膜 ALMT 家族保守的 C 端结构域，因此显著降低液泡苹果酸转运活性，"
+        "对应低酸表型。不要写成笼统的\"编码区 SNP 改变转运活性\"。\n"
+        "• MdMYB73 是 Ma1 的直接上游转录激活因子：MdMYB73 蛋白直接结合并激活 MdALMT9 (=Ma1)、"
+        "MdVHA-A、MdVHP1 三者的启动子。注意是 MdVHA-A 而非 MdVHA-B —— MdVHA-B1 是其近缘 MdMYB1 的靶基因，"
+        "易被张冠李戴。描述 MdMYB73 与 Ma1 关系时应写"
+        "\"MdMYB73 直接转录激活 MdALMT9 (=Ma1)\"，而不只是\"协同作用\"。"
+    )
+
+    _STREAM_PAPER_FOCUS_PROMPT = (
+        "你是科研论文问答助手。当前已经命中一篇具体论文，任务是解读这篇论文而非套模板。\n"
+        "\n"
+        "输出要求：\n"
+        "1. 正文开头一句话点明论文已命中，并给出本论文回答的核心问题（不超过 60 字），格式 **结论：**xxx。\n"
+        "2. 用 2–3 段自然中文概括当前证据片段支持的结论。\n"
+        "3. 如用户问题中的某个术语在当前片段里未出现，必须显式说明：'论文已找到，但当前片段未直接支持该术语'。\n"
+        "4. 不要主动提 chr/pos/QTL/GWAS 等坐标信息，除非证据里出现。\n"
+        "5. 引用 [1] [2] 紧跟支撑句末，末尾不需要参考文献列表。\n"
+        "6. 基因名标准化；品种 / 物种名用 *...* 包裹。"
+    )
+
+    def _sandwich(self, sources: list[RetrievedItem]) -> list[RetrievedItem]:
+        """Lost-in-the-middle 缓解：最相关的留在头部和尾部，中间放次相关。
+        编号顺序保留原顺序，使 [N] 引用与前端 source 列表一致。"""
+        if len(sources) <= 3:
+            return sources
+        # 编号顺序不变（前端按 idx 对应卡片），但拼接到 prompt 时把 top-1 复制到末尾。
+        # 这里返回原列表 + 末位重复 top-1 标记，由调用方处理。
+        return sources  # 实际重新排序由 _compose_context 完成
+
+    def _compose_context(self, sources: list[RetrievedItem]) -> str:
+        """把检索到的证据拼成给 LLM 的 context 字符串。
+        编号 [1..N] 严格按 sources 顺序。最相关的（top-1）末尾追加复述一次，缓解
+        lost-in-the-middle。每条 chunk 截断到 800 字以控制 token。"""
+        if not sources:
+            return ""
+        lines: list[str] = []
+        for idx, src in enumerate(sources, start=1):
+            citation = f"[{idx}] {src.source_type}"
+            if src.title:
+                citation += f" | {src.title}"
+            if src.page:
+                citation += f" | p.{src.page}"
+            if src.reference_genome:
+                citation += f" | ref={src.reference_genome}"
+            body = (src.chunk_text or "").replace("\n", " ").strip()
+            if len(body) > 800:
+                body = body[:800].rstrip() + "…"
+            lines.append(f"{citation}\n{body}")
+        ctx = "\n\n".join(lines)
+        # Sandwich: 顶部最重要 → 末尾再点一次 top-1（不重新编号）
+        if len(sources) >= 4:
+            top = sources[0]
+            top_snippet = (top.chunk_text or "").replace("\n", " ").strip()[:400]
+            ctx += f"\n\n（提醒：上文 [1] 是当前最相关的证据，原文要点：{top_snippet}）"
+        return ctx
+
+    def _compose_stream_messages(
+        self, question: str, sources: list[RetrievedItem]
+    ) -> tuple[str, str]:
+        """为流式生成准备 (system_prompt, user_prompt)。"""
+        paper_query = _looks_like_paper_query(question)
+        matched_paper_title = None
+        if paper_query and sources:
+            best_paper = max(
+                (s for s in sources if s.source_type == "paper"),
+                key=lambda s: _title_match_strength(question, s.title),
+                default=None,
+            )
+            if best_paper and _title_match_strength(question, best_paper.title) > 0.45:
+                matched_paper_title = best_paper.title
+        paper_only = bool(sources) and all(s.source_type == "paper" for s in sources)
+        paper_focus = bool(matched_paper_title) and paper_only
+
+        context = self._compose_context(sources)
+        if paper_focus:
+            system_prompt = self._STREAM_PAPER_FOCUS_PROMPT
+            user_prompt = (
+                f"问题:\n{question}\n\n"
+                f"已命中目标论文：{matched_paper_title}\n\n"
+                f"证据:\n{context}"
+            )
+        else:
+            system_prompt = self._STREAM_SYSTEM_PROMPT
+            user_prompt = (
+                f"问题:\n{question}\n\n"
+                + (f"（提示：本次检索命中目标论文 {matched_paper_title}）\n\n" if matched_paper_title else "")
+                + f"证据:\n{context}"
+            )
+        return system_prompt, user_prompt
+
+    def generate_stream(
+        self,
+        question: str,
+        sources: list[RetrievedItem],
+        llm_api_key: str | None = None,
+        llm_base_url: str | None = None,
+        llm_model: str | None = None,
+    ):
+        """流式生成：yield 文本 delta 字符串。调用方负责包成 SSE。"""
+        llm = self._make_llm_client(
+            api_key=llm_api_key if llm_api_key is not None else self.settings.llm_api_key,
+            base_url=llm_base_url if llm_base_url is not None else self.settings.llm_base_url,
+        )
+        if llm is None:
+            yield "**未配置 LLM API Key。**请在右上角『配置 LLM Key』填入后再问。"
+            return
+
+        system_prompt, user_prompt = self._compose_stream_messages(question, sources)
+        try:
+            stream = llm.chat.completions.create(
+                model=(llm_model or self.settings.llm_model).strip(),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.35,
+                stream=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            yield f"**LLM 调用失败**：{exc}"
+            return
+
+        for event in stream:
+            try:
+                delta = event.choices[0].delta.content
+            except (AttributeError, IndexError):
+                delta = None
+            if delta:
+                yield delta
+
+    def generate_llm_only_stream(
+        self,
+        question: str,
+        llm_api_key: str | None = None,
+        llm_base_url: str | None = None,
+        llm_model: str | None = None,
+    ):
+        """无 RAG 的流式版本。"""
+        llm = self._make_llm_client(
+            api_key=llm_api_key if llm_api_key is not None else self.settings.llm_api_key,
+            base_url=llm_base_url if llm_base_url is not None else self.settings.llm_base_url,
+        )
+        if llm is None:
+            yield "**未配置 LLM API Key**，无法调用纯模型回答。"
+            return
+        system_prompt = (
+            "你是苹果（Malus domestica）育种领域的科研助手。"
+            "本次提问**没有附带任何检索证据**，请仅凭训练知识作答。\n"
+            "1. 正文开头一句话核心结论（≤60 字），格式 **结论：**xxx。\n"
+            "2. 全文 3-4 段紧凑综述风格，禁用 # 标题。\n"
+            "3. 基因名标准化（MdNAC18、Ma1）；染色体 Chr5；品种/物种用 *...* 包裹。\n"
+            "4. 明确说明本回答未经过检索增强，仅基于预训练知识；如需精确论文出处请切回 RAG 模式。\n"
+            "5. 中文问题用中文回答。"
+        )
+        try:
+            stream = llm.chat.completions.create(
+                model=(llm_model or self.settings.llm_model).strip(),
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                temperature=0.4,
+                stream=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            yield f"**LLM 调用失败**：{exc}"
+            return
+        for event in stream:
+            try:
+                delta = event.choices[0].delta.content
+            except (AttributeError, IndexError):
+                delta = None
+            if delta:
+                yield delta
+
     def generate_llm_only(
         self,
         question: str,

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import logging
+import re
 import threading
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from app.ingest import load_gene_rows, load_pdf_chunks
 from app.rag import RagService
@@ -277,3 +280,102 @@ def chat(body: ChatRequest) -> ChatResponse:
         for s in sources
     ]
     return ChatResponse(answer=answer, route_used=route, sources=response_sources)
+
+
+# ── Streaming chat (Server-Sent Events) ────────────────────────────────────
+# 答辩演示重点：边生成边出字，体验和 ChatGPT 一致。
+# 事件序列：
+#   event: meta   data: {"route":"hybrid","sources":[{...}, ...]}
+#   event: delta  data: {"text":"..."}
+#   event: delta  data: {"text":"..."}
+#   ...
+#   event: audit  data: {"cited":[1,3,5],"invalid":[],"total":6}
+#   event: done   data: {}
+_CITATION_RE = re.compile(r"\[(\d+)\]")
+
+
+def _sse(event: str, data: dict | None = None) -> str:
+    payload = json.dumps(data or {}, ensure_ascii=False)
+    return f"event: {event}\ndata: {payload}\n\n"
+
+
+@app.post(f"{settings.api_prefix}/chat/stream")
+def chat_stream(body: ChatRequest):
+    if settings.auto_ingest_on_startup:
+        ensure_bootstrap_ingested()
+
+    def event_generator():
+        # ── 路由 + 检索（同步，先于 LLM stream 完成） ────────────────
+        if body.route == "llm_only":
+            route_used = "llm_only"
+            sources: list = []
+            yield _sse("meta", {"route": route_used, "sources": []})
+            buffer: list[str] = []
+            for delta in rag.generate_llm_only_stream(
+                body.question,
+                llm_api_key=body.llm_api_key,
+                llm_base_url=body.llm_base_url,
+                llm_model=body.llm_model,
+            ):
+                buffer.append(delta)
+                yield _sse("delta", {"text": delta})
+            text = "".join(buffer)
+            cited = sorted({int(m) for m in _CITATION_RE.findall(text)})
+            yield _sse("audit", {"cited": cited, "invalid": [], "total": 0})
+            yield _sse("done", {})
+            return
+
+        route = rag.route(body.question, body.route)
+        sources = rag.retrieve(body.question, route=route, top_k=body.top_k)
+
+        # 先把 meta 发出去，让前端立刻把证据卡片渲染出来
+        meta_sources = [
+            {
+                "source_type": s.source_type,
+                "source_id": s.source_id,
+                "score": s.score,
+                "title": s.title,
+                "chunk_text": s.chunk_text,
+                "page": s.page,
+                "trait": s.trait,
+                "reference_genome": s.reference_genome,
+                "coordinate_note": s.coordinate_note,
+            }
+            for s in sources
+        ]
+        yield _sse("meta", {"route": route, "sources": meta_sources})
+
+        if not sources:
+            yield _sse("delta", {"text": "未检索到相关材料。"})
+            yield _sse("audit", {"cited": [], "invalid": [], "total": 0})
+            yield _sse("done", {})
+            return
+
+        # ── LLM 流式生成 ───────────────────────────────────────────────
+        buffer: list[str] = []
+        for delta in rag.generate_stream(
+            body.question,
+            sources,
+            llm_api_key=body.llm_api_key,
+            llm_base_url=body.llm_base_url,
+            llm_model=body.llm_model,
+        ):
+            buffer.append(delta)
+            yield _sse("delta", {"text": delta})
+
+        # ── 引用审计（流式结束后跑一次） ──────────────────────────────
+        text = "".join(buffer)
+        cited = sorted({int(m) for m in _CITATION_RE.findall(text)})
+        invalid = [n for n in cited if n < 1 or n > len(sources)]
+        yield _sse("audit", {"cited": cited, "invalid": invalid, "total": len(sources)})
+        yield _sse("done", {})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",  # 防止 nginx 缓冲 SSE
+            "Connection": "keep-alive",
+        },
+    )
