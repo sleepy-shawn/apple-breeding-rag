@@ -1,0 +1,77 @@
+{
+  "question_count": 28,
+  "config_summaries": [
+    {
+      "config_id": "A1",
+      "config_name": "Papers-only",
+      "question_count": 28,
+      "gene_score_avg": 3.1785714285714284,
+      "mechanism_score_avg": 1.5714285714285714,
+      "citation_score_avg": 2.0,
+      "level_score_avg": 0.9285714285714286,
+      "full_total_avg": 7.678571428571429,
+      "error_count": 0
+    },
+    {
+      "config_id": "A2",
+      "config_name": "Genes-only",
+      "question_count": 28,
+      "gene_score_avg": 3.5357142857142856,
+      "mechanism_score_avg": 2.1785714285714284,
+      "citation_score_avg": 2.0,
+      "level_score_avg": 0.9285714285714286,
+      "full_total_avg": 8.642857142857142,
+      "error_count": 0
+    },
+    {
+      "config_id": "A3",
+      "config_name": "Hybrid（完整系统）",
+      "question_count": 28,
+      "gene_score_avg": 3.5357142857142856,
+      "mechanism_score_avg": 2.107142857142857,
+      "citation_score_avg": 2.0,
+      "level_score_avg": 0.8571428571428571,
+      "full_total_avg": 8.5,
+      "error_count": 0
+    }
+  ],
+  "trait_summaries": [
+    {
+      "trait": "firmness",
+      "question_count": 5,
+      "avg_total": 9.0,
+      "gene_recall_rate": 0.9339999999999999
+    },
+    {
+      "trait": "color",
+      "question_count": 5,
+      "avg_total": 9.2,
+      "gene_recall_rate": 0.96
+    },
+    {
+      "trait": "acidity",
+      "question_count": 5,
+      "avg_total": 8.6,
+      "gene_recall_rate": 0.834
+    },
+    {
+      "trait": "harvest",
+      "question_count": 4,
+      "avg_total": 8.25,
+      "gene_recall_rate": 0.9375
+    },
+    {
+      "trait": "sugar",
+      "question_count": 4,
+      "avg_total": 7.75,
+      "gene_recall_rate": 0.7766666666666667
+    },
+    {
+      "trait": "general",
+      "question_count": 5,
+      "avg_total": 8.0,
+      "gene_recall_rate": 0.0
+    }
+  ],
+  "input_file": "workspace/default/evaluation/ablation_v2/ablation_results_judged.csv"
+}

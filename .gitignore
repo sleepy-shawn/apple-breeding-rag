@@ -109,12 +109,11 @@ workspace/default/**
 !workspace/default/evaluation/.gitkeep
 !workspace/default/evaluation/eval_protocol.md
 !workspace/default/evaluation/test_questions.jsonl
-!workspace/default/evaluation/runs/
-!workspace/default/evaluation/runs/baseline_final_paper_set/
-!workspace/default/evaluation/runs/baseline_final_paper_set/summary.md
-!workspace/default/evaluation/runs/baseline_final_paper_set/summary.json
-!workspace/default/evaluation/runs/baseline_final_paper_set/results.csv
-!workspace/default/evaluation/runs/baseline_final_paper_set/run_manifest.json
+!workspace/default/evaluation/ablation_v2/
+!workspace/default/evaluation/ablation_v2/*.md
+!workspace/default/evaluation/ablation_v2/*.csv
+!workspace/default/evaluation/ablation_v2/*.jsonl
+!workspace/default/evaluation/ablation_v2/*.json
 !workspace/default/reports/
 !workspace/default/reports/.gitkeep
 !workspace/default/reports/backend_paper_inventory.csv
